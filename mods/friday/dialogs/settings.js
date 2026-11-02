@@ -11,12 +11,13 @@ import { loadLedger } from "../core/ledger.js";
 import { checkLedger } from "../core/ledgercheck.js";
 import { SettingsError } from "../core/settings.js";
 import { openPath } from "../open.js";
-import { calendarSection } from "./calendar-section.js";
+import { calendarSection, CalendarState } from "./calendar-section.js";
 import { button, note, stateColor } from "../ui.js";
 import { VERSION, CHECKED_AGAINST, REOPEN_COMMAND } from "../version.js";
 
 export class SettingsDialog {
   init(cx) {
+    this.calendar = new CalendarState();
     this.settings = null;
     this.message = null;
     this.focus = (props() || {}).section ?? null;

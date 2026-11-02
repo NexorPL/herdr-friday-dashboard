@@ -14,7 +14,8 @@ import { button, note } from "../ui.js";
 
 const SOUNDS = ["none", "done", "blocked"];
 
-class CalendarState {
+/** Made in the dialog's init(): InputState.new cannot run during render. */
+export class CalendarState {
   constructor() {
     this.from = null; // the settings.json text the inputs were filled from
     this.message = null;
@@ -91,7 +92,7 @@ function test(st, cx, email) {
 }
 
 export function calendarSection(dialog, t) {
-  const st = (dialog.calendar ??= new CalendarState());
+  const st = dialog.calendar;
   const s = dialog.settings;
   if (s && st.from !== s.text) st.fill(s);
   const rec = currentStatus(s.values).calendar;
