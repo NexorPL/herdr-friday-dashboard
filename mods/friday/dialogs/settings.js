@@ -2,10 +2,13 @@
 // the command that reopens the Friday tab. Phase 2 and later add their sections here.
 import { div } from "gpui-kit";
 import { h_flex, v_flex, InputState, Input } from "gpui-base";
-import { theme, props, closeOverlay, setShared } from "herdr";
-import { loadSettings, saveSetting, dataDir } from "../store.js";
+import { theme, props, closeOverlay, setShared, readTextFile, home } from "herdr";
+import { exists } from "fs/promises";
+import { loadSettings, saveSetting, dataDir, resolvePath } from "../store.js";
 import { currentStatus, SETTINGS_REV } from "../hub.js";
 import { checklist } from "../core/setup.js";
+import { loadLedger } from "../core/ledger.js";
+import { checkLedger } from "../core/ledgercheck.js";
 import { SettingsError } from "../core/settings.js";
 import { openPath } from "../open.js";
 import { button, note, stateColor } from "../ui.js";
@@ -27,14 +30,19 @@ export class SettingsDialog {
     cx.timer.every(2000, (cx) => cx.notify());
   }
 
-  save(cx) {
-    const value = this.input.value().trim();
+  save(cx, typed) {
+    const value = (typed ?? this.input.value()).trim();
+    if (typed !== undefined) this.input.set_value(value);
     cx.spawn(async (cx) => {
       try {
         await saveSetting("ledger.path", value);
         this.settings = await loadSettings();
         setShared(SETTINGS_REV, Date.now());
-        this.message = { text: "Saved. Checking the ledger…", state: "ok" };
+        try {
+          this.message = await checkLedger(value, home(), await loadLedger(readTextFile, resolvePath(value)), exists);
+        } catch (e) {
+          this.message = { text: `Saved, but the check failed: ${e?.message ?? e}`, state: "error" };
+        }
       } catch (e) {
         const named = e instanceof SettingsError ? `${e.key} is invalid: use a file path, for example ~/pr-reviews.md` : "Could not save settings.json. Try again.";
         this.message = { text: named, state: "error" };
@@ -74,7 +82,10 @@ export class SettingsDialog {
           Input.new(this.input).h(32).px(10).rounded(8).border_1().border_color(t.input).bg(t.background).text_size(12.5).text_color(t.foreground),
           h_flex().gap(8).items_center()
             .child(button(t, "set-save", "Save", (_e, cx) => this.save(cx), true))
-            .when(Boolean(this.message), (el) => el.child(note(t, this.message.text, this.message.state)))))
+            .when(Boolean(this.message), (el) => el.child(note(t, this.message.text, this.message.state))),
+          ...(this.message?.suggestions ?? []).map((p, i) => h_flex().gap(8).items_center()
+            .child(button(t, `set-suggest-${i}`, "Use", (_e, cx) => this.save(cx, p)))
+            .child(div().flex_1().truncate().text_size(11).text_color(t.dim).child(p)))))
         .child(this.section(t, "about", "About",
           div().text_color(t.muted).child(`Friday ${VERSION}, checked against herdr-app ${CHECKED_AGAINST}`),
           div().text_size(11).text_color(t.dim).child("Data folder"),
