@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import ICAL from "../mods/friday/vendor/ical.js";
-import { parseFeed, todayRows, joinLink, feedNote, localDay, clock, addDays } from "../mods/friday/core/meetings.js";
+import { parseFeed, parseFeedSteps, todayRows, joinLink, feedNote, localDay, clock, addDays } from "../mods/friday/core/meetings.js";
 
 const fixture = (name) => readFileSync(new URL(`./fixtures/ics/${name}`, import.meta.url), "utf8");
 // Winter in Warsaw: +01:00. All fixtures are hand-made and anonymized.
@@ -195,4 +195,47 @@ test("an all-day event whose DTEND equals its DTSTART shows as one day", () => {
   const r = run(feed(ev("z", "DTSTART;VALUE=DATE:20261104\nDTEND;VALUE=DATE:20261104\nSUMMARY:Zero")));
   assert.equal(r.meetings.length, 1);
   assert.equal(r.meetings[0].end_day, "2026-11-05");
+});
+
+// A busy work calendar, anonymized: Wednesday series with many moved occurrences, and past one-offs.
+const busyFeed = ({ series = 20, moved = 10, single = 20 } = {}) => {
+  const out = [];
+  for (let i = 0; i < series; i++) {
+    const h = String(8 + (i % 9)).padStart(2, "0");
+    out.push(ev(`series-${i}`, `DTSTART:20260107T${h}0000Z\nDTEND:20260107T${h}3000Z\nRRULE:FREQ=WEEKLY\nSUMMARY:Series ${i}`));
+    for (let k = 1; k <= moved; k++) {
+      const day = new Date(Date.UTC(2026, 0, 7 + 7 * k)).toISOString().slice(0, 10).replaceAll("-", "");
+      out.push(ev(`series-${i}`, `RECURRENCE-ID:${day}T${h}0000Z\nDTSTART:${day}T${h}1500Z\nDTEND:${day}T${h}4500Z\nSUMMARY:Series ${i} (moved)`));
+    }
+  }
+  for (let j = 0; j < single; j++) out.push(ev(`single-${j}`, `DTSTART:20260201T${String(8 + (j % 9)).padStart(2, "0")}0000Z\nDTEND:20260201T${String(9 + (j % 9)).padStart(2, "0")}0000Z\nSUMMARY:Single ${j}`));
+  return feed(...out);
+};
+
+test("ical.js does not rescan the whole calendar for every event (that never finished in herdr-app)", () => {
+  const proto = ICAL.Component.prototype;
+  const original = proto.getAllSubcomponents;
+  let scans = 0;
+  proto.getAllSubcomponents = function (name) {
+    if (name === "vevent") scans++;
+    return original.call(this, name);
+  };
+  try {
+    const r = run(busyFeed());
+    assert.equal(r.meetings.length, 20); // each series once, on Wednesday 4 November
+    assert.equal(scans, 1);
+  } finally {
+    proto.getAllSubcomponents = original;
+  }
+});
+
+test("parseFeedSteps yields between slices and returns what parseFeed returns", () => {
+  const text = busyFeed({ series: 30, moved: 15, single: 50 });
+  const steps = parseFeedSteps(ICAL, text, { today: "2026-11-04", offsetMin: CET });
+  let slices = 0;
+  let r;
+  while (!(r = steps.next()).done) slices++;
+  assert.ok(slices >= 3, `slices: ${slices}`);
+  assert.deepEqual(r.value, run(text));
+  assert.equal(r.value.meetings.length, 30);
 });

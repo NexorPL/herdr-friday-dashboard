@@ -33,4 +33,5 @@ test("Retry-After reads seconds and HTTP dates", () => {
 test("error messages never carry a URL or a secret", () => {
   assert.equal(httpError("calendar", 429), "calendar: HTTP 429");
   assert.equal(networkError("calendar"), "calendar: request failed");
+  assert.equal(networkError("calendar", new Error("error sending request for url (https://example.invalid/SECRET)")), "calendar: could not connect (check the network or proxy)");
 });

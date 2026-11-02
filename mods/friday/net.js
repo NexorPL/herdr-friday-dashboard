@@ -8,7 +8,7 @@ const loadIcal = () => (icalModule ??= import("./vendor/ical.js").then((m) => m.
 /** `fetch` has no AbortController: race it against a timer. The request itself is abandoned. */
 export function withTimeout(cx, promise, ms) {
   return new Promise((resolve, reject) => {
-    cx.timer.after(ms, () => reject(new Error("timeout")));
+    cx.timer.after(ms, () => reject(Object.assign(new Error("timeout"), { name: "FridayTimeout" })));
     promise.then(resolve, reject);
   });
 }
@@ -28,6 +28,7 @@ export async function runCalendar(cx, url, me) {
   return fetchMeetings({
     fetch: (u) => fetch(u),
     withTimeout: (p, ms) => withTimeout(cx, p, ms),
+    pause: () => cx.sleep(0),
     ICAL,
     url,
     now: Date.now(),

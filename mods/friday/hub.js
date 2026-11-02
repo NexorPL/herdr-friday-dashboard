@@ -22,6 +22,12 @@ export const MEETINGS = "friday.meetings";
 /** Settings bumps this after a save, so every copy rereads settings.json within a second. */
 export const SETTINGS_REV = "friday.settings_rev";
 
+/**
+ * A run still going after this long was ended by herdr-app, which stops a job that runs about half a
+ * second without giving control back and then runs no catch or finally (see core/meetings.js).
+ */
+const STUCK_MS = 120_000;
+
 /** The newest days kept in shared(), so the value stays far below 1 MiB. */
 const MAX_DAYS = 120;
 
@@ -54,7 +60,7 @@ export class Hub {
     this.settings = { ...resolveSettings({}), state: "loading", saved: false, text: null };
     this.rev = shared(SETTINGS_REV);
     this.seconds = 0;
-    this.polling = false;
+    this.polling = 0; // ms the running poll started, 0 when none
     this.attempted = {}; // source -> ms of this copy's last fetch
     this.holds = {}; // source -> this copy holds its lease right now (set by poll)
     this.dayChecked = null; // the local day this copy last forced a calendar fetch for
@@ -72,8 +78,8 @@ export class Hub {
   }
 
   run(cx, force) {
-    if (this.polling) return;
-    this.polling = true;
+    if (this.polling && Date.now() - this.polling < STUCK_MS) return;
+    this.polling = Date.now();
     cx.spawn(async (cx) => {
       try {
         const next = await loadSettings();
@@ -87,7 +93,7 @@ export class Hub {
       } catch {
         // a failing poll must not stop the timer; the source's own status shows the error
       } finally {
-        this.polling = false;
+        this.polling = 0;
       }
     });
   }

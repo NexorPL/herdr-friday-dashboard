@@ -24,6 +24,10 @@ const JOIN = [
 const MAX_STEPS = 1000;
 const MAX_TOTAL_STEPS = 2500;
 export const TOO_COMPLEX = "calendar: too complex";
+// herdr-app 0.1.12 ends a script job that runs about half a second without giving control back,
+// and then no catch or finally runs: the task just stops. parseFeedSteps yields every PAUSE_EVERY
+// events or recurrence steps, so the caller can pause between slices (see core/calendar.js).
+const PAUSE_EVERY = 200;
 
 const pad = (n) => String(n).padStart(2, "0");
 const dayString = (y, m, d) => `${y}-${pad(m)}-${pad(d)}`;
@@ -132,7 +136,16 @@ function seriesStart(e, start, today, from, offsetMin) {
  * meetings the owner declined. Returns { meetings, skipped, unknownTz, calendars }; `calendars`
  * is 0 when the answer was not an iCal feed (a sign-in page, say).
  */
-export function parseFeed(ICAL, feed, { today, offsetMin, me = null }) {
+export function parseFeed(ICAL, feed, options) {
+  const steps = parseFeedSteps(ICAL, feed, options);
+  for (;;) {
+    const r = steps.next();
+    if (r.done) return r.value;
+  }
+}
+
+/** parseFeed in slices: the generator yields between slices of work and returns parseFeed's result. */
+export function* parseFeedSteps(ICAL, feed, { today, offsetMin, me = null }) {
   const out = { meetings: [], skipped: 0, unknownTz: false, calendars: 0, steps: 0, tooComplex: false };
   let root;
   try {
@@ -143,6 +156,9 @@ export function parseFeed(ICAL, feed, { today, offsetMin, me = null }) {
   }
   if (root.name !== "vcalendar") return out;
   out.calendars = 1;
+  // ponytail: ICAL.parse is one slice (~0.1 s for 400 KB in QuickJS); a feed a few times larger needs a streaming parse.
+  yield;
+  let work = 0;
   for (const z of root.getAllSubcomponents("vtimezone")) {
     try {
       ICAL.TimezoneService.register(z);
@@ -160,6 +176,7 @@ export function parseFeed(ICAL, feed, { today, offsetMin, me = null }) {
   const overridden = new Set();
   const key = (uid, t) => `${uid}|${t.isDate ? dayOf(t) : toMs(t, offsetMin)}`;
   for (const e of events) {
+    if (++work % PAUSE_EVERY === 0) yield;
     try {
       const rid = prop(e, "recurrence-id");
       const uid = text(e, "uid");
@@ -170,6 +187,7 @@ export function parseFeed(ICAL, feed, { today, offsetMin, me = null }) {
   }
 
   for (const e of events) {
+    if (++work % PAUSE_EVERY === 0) yield;
     try {
       const uid = text(e, "uid");
       const startProp = prop(e, "dtstart");
@@ -220,13 +238,17 @@ export function parseFeed(ICAL, feed, { today, offsetMin, me = null }) {
       if (rid) {
         add(rid.getFirstValue(), start); // an override stands for the one occurrence it names
       } else {
-        const ev = new ICAL.Event(e);
+        // Without `exceptions`, ical.js relates every RECURRENCE-ID event of the calendar to each
+        // event it builds: a scan of all events per event, which took ~26 ms per event on a real
+        // 1657-event feed in QuickJS. Overrides are handled above through `overridden`.
+        const ev = new ICAL.Event(e, { exceptions: [] });
         if (ev.isRecurring()) {
           const begin = seriesStart(e, start, today, from, offsetMin);
           if (begin === null) continue; // ended before the window
           const it = ev.iterator(begin);
           let step = 0;
           for (let next = it.next(); next; next = it.next()) {
+            if (++work % PAUSE_EVERY === 0) yield;
             if (step++ >= MAX_STEPS) {
               out.skipped++;
               break;

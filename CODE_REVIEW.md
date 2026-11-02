@@ -32,6 +32,7 @@
 **herdr-app runtime**
 
 - No `setTimeout` or `setInterval`; a `cx` is never stored and used later; no `Intl`.
+- Work whose cost grows with its input (parsing a feed, a large file) yields with `await cx.sleep(0)` between slices: herdr-app ends a job that runs about 0.5 s without yielding, and then no `catch` or `finally` runs.
 - Timers poll only as often as the data changes.
 - Animations use `.frames`, `.spin`, `.loop` or `.transition`, never a timer that calls `cx.notify()`.
 - `herdr-app check mods/friday` passes, and the PR says so.

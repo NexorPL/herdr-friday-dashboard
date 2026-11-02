@@ -9,6 +9,8 @@ import { setShared } from "herdr";
 import { loadSettings, saveSettings, saveSecret, readSecret } from "../store.js";
 import { currentStatus, SETTINGS_REV } from "../hub.js";
 import { runCalendar } from "../net.js";
+import { FETCH_TIMEOUT_MS } from "../core/calendar.js";
+import { testAddress, saveAddress } from "../core/calendarform.js";
 import { SettingsError } from "../core/settings.js";
 import { button, note } from "../ui.js";
 
@@ -19,6 +21,7 @@ export class CalendarState {
   constructor() {
     this.from = null; // the settings.json text the inputs were filled from
     this.message = null;
+    this.testing = null; // the running Test, so a second click waits for it
     this.sound = "done";
     this.url = InputState.new({ value: "", placeholder: "Paste the secret iCal address" });
     this.url.set_masked(true);
@@ -37,25 +40,25 @@ export class CalendarState {
   }
 }
 
-const say = (st, cx, text, state) => {
-  st.message = { text, state };
+// `where` is the row the message shows under: "url" (Save address, Test, Remove) or "options".
+const say = (st, cx, text, state, where = "url") => {
+  st.message = { text, state, where };
   cx.notify();
 };
 
-/** Saves the typed address (or removes it when the box is empty and `remove` is set). */
+/** Saves the typed address, or removes the stored one with `remove`. */
 function saveUrl(st, cx, remove) {
-  const value = remove ? "" : st.url.value().trim();
-  if (!remove && value === "") return say(st, cx, "Paste the address first.", "error");
-  cx.spawn(async (cx) => {
-    try {
-      await saveSecret("ical_url", value);
+  const typed = remove ? "" : st.url.value().trim();
+  cx.spawn((cx) => saveAddress({
+    typed,
+    remove,
+    saveSecret: (value) => saveSecret("ical_url", value),
+    saved: () => {
       st.url.set_value("");
       setShared(SETTINGS_REV, Date.now());
-      say(st, cx, remove ? "Address removed." : "Address saved. Reading the calendar…", "ok");
-    } catch {
-      say(st, cx, "Could not save secrets.json. Try again.", "error");
-    }
-  });
+    },
+    say: (text, state) => say(st, cx, text, state),
+  }));
 }
 
 function saveOptions(dialog, st, cx) {
@@ -71,23 +74,40 @@ function saveOptions(dialog, st, cx) {
       dialog.settings = await loadSettings();
       st.from = dialog.settings.text;
       setShared(SETTINGS_REV, Date.now());
-      say(st, cx, "Saved.", "ok");
+      say(st, cx, "Saved.", "ok", "options");
     } catch (e) {
       const named = e instanceof SettingsError ? `${e.key} is invalid: use a duration such as 10m, 30s or 1h 30m` : "Could not save settings.json. Try again.";
-      say(st, cx, named, "error");
+      say(st, cx, named, "error", "options");
     }
   });
 }
 
+/** How long "Testing…" may stay: the fetch and body timeouts, and the parse. */
+const TEST_GIVE_UP_MS = 2 * FETCH_TIMEOUT_MS + 15_000;
+
 /** Test: fetches the feed with the typed address, else the stored one. */
 function test(st, cx, email) {
+  if (st.testing) return;
+  const run = (st.testing = {});
   say(st, cx, "Testing…", "loading");
+  // herdr-app can end the job without running catch or finally (core/meetings.js): give up visibly.
+  cx.timer.after(TEST_GIVE_UP_MS, (cx) => {
+    if (st.testing !== run) return;
+    st.testing = null;
+    say(st, cx, "calendar: the test did not finish", "error");
+  });
+  const typed = st.url.value().trim();
   cx.spawn(async (cx) => {
-    const url = st.url.value().trim() || (await readSecret("ical_url"));
-    if (!url) return say(st, cx, "No address yet.", "error");
-    const r = await runCalendar(cx, url, email);
-    if (r.ok) say(st, cx, `OK, ${r.value.meetings.length} meetings today and tomorrow.`, "ok");
-    else say(st, cx, r.status === 401 || r.status === 403 ? "calendar: address rejected" : r.message, "error");
+    try {
+      await testAddress({
+        typed,
+        readSecret: () => readSecret("ical_url"),
+        fetchFeed: (url) => runCalendar(cx, url, email),
+        say: (text, state) => st.testing === run && say(st, cx, text, state),
+      });
+    } finally {
+      if (st.testing === run) st.testing = null;
+    }
   });
 }
 
@@ -98,6 +118,7 @@ export function calendarSection(dialog, t) {
   const rec = currentStatus(s.values).calendar;
   const stored = rec ? !rec.not_set_up : null;
   const field = (state) => Input.new(state).h(32).px(10).rounded(8).border_1().border_color(t.input).bg(t.background).text_size(12.5).text_color(t.foreground);
+  const msg = (where) => (st.message?.where === where ? note(t, st.message.text, st.message.state) : div());
   const label = (text) => div().text_size(11).text_color(t.dim).child(text);
   return dialog.section(t, "calendar", "Calendar",
     div().text_size(11).text_color(t.dim).child("The secret iCal address of your calendar (Google Calendar: Settings, Integrate calendar, Secret address in iCal format). It is stored in secrets.json in the data folder."),
@@ -107,6 +128,7 @@ export function calendarSection(dialog, t) {
       .child(button(t, "cal-save-url", "Save address", (_e, cx) => saveUrl(st, cx, false), true))
       .child(button(t, "cal-test", "Test", (_e, cx) => test(st, cx, st.email.value().trim() || null)))
       .child(button(t, "cal-remove", "Remove", (_e, cx) => saveUrl(st, cx, true))),
+    msg("url"),
     label("Your e-mail (hides meetings you declined)"),
     field(st.email),
     label("Refresh every"),
@@ -116,6 +138,6 @@ export function calendarSection(dialog, t) {
     label("Alert sound"),
     h_flex().gap(6).children(SOUNDS.map((x) => button(t, `cal-sound-${x}`, x, (_e, cx) => { st.sound = x; cx.notify(); }, st.sound === x))),
     h_flex().gap(8).items_center()
-      .child(button(t, "cal-save", "Save", (_e, cx) => saveOptions(dialog, st, cx), true))
-      .when(Boolean(st.message), (el) => el.child(note(t, st.message.text, st.message.state))));
+      .child(button(t, "cal-save", "Save", (_e, cx) => saveOptions(dialog, st, cx), true)),
+    msg("options"));
 }

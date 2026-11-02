@@ -48,7 +48,18 @@ export function httpError(source, status) {
   return `${source}: HTTP ${status}`;
 }
 
-/** For a rejected `fetch`: its own message quotes the URL, so it is never used. */
-export function networkError(source) {
+/**
+ * For a rejected `fetch` or body read: the cause only. The rejection's own message quotes the URL
+ * (a secret), so it is searched for cause keywords and then dropped, never copied. `stage` is "body"
+ * when the failure came after the headers; `timeoutMs` is our race timer's limit.
+ */
+export function networkError(source, err = null, { stage = "request", timeoutMs = 0 } = {}) {
+  const name = String(err?.name ?? "");
+  const text = typeof err?.message === "string" ? err.message : typeof err === "string" ? err : "";
+  if (name === "FridayTimeout") return `${source}: timed out after ${Math.round(timeoutMs / 1000)} s`;
+  if (stage === "body") return `${source}: could not read the answer`;
+  if (/error sending request|failed to connect|connection|dns|tls|certificate|refused|reset/i.test(text)) {
+    return `${source}: could not connect (check the network or proxy)`;
+  }
   return `${source}: request failed`;
 }
