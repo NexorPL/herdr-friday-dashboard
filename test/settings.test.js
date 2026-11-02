@@ -14,8 +14,12 @@ const TEST = [
 ];
 const resolve = (raw) => resolveSettings(raw, TEST);
 
-test("Phase 1 defines only ledger.path", () => {
-  assert.deepEqual(SCHEMA.map((s) => s.key), ["ledger.path"]);
+test("the schema holds the ledger path and Phase 3's calendar keys", () => {
+  assert.deepEqual(SCHEMA.map((s) => s.key), ["ledger.path", "calendar.email", "calendar.interval", "calendar.alerts", "notifications.sound"]);
+  const { values } = resolveSettings({});
+  assert.deepEqual(values.calendar, { email: null, interval: "10m", alerts: ["5m"] });
+  assert.equal(values.notifications.sound, "done");
+  assert.deepEqual(resolveSettings({ calendar: { interval: "0s", alerts: ["soon"] }, notifications: { sound: "loud" } }).invalid, ["calendar.interval", "calendar.alerts", "notifications.sound"]);
 });
 
 test("an empty file gives the defaults", () => {

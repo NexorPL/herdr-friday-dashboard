@@ -9,9 +9,15 @@ const path = (key, dflt) => ({ key, kind: "path", default: dflt });
 
 /**
  * In the order Settings shows them. A `text` key with a null default is required by its widgets.
- * Phase 1 has only the ledger path; each later phase adds its own keys here.
+ * Each phase adds its own keys here (Phase 3: calendar.* and notifications.sound).
  */
-export const SCHEMA = [path("ledger.path", "~/pr-reviews.md")];
+export const SCHEMA = [
+  path("ledger.path", "~/pr-reviews.md"),
+  { key: "calendar.email", kind: "text", default: null },
+  { key: "calendar.interval", kind: "interval", default: "10m" },
+  { key: "calendar.alerts", kind: "durations", default: ["5m"] },
+  { key: "notifications.sound", kind: "choice", options: ["none", "done", "blocked"], default: "done" },
+];
 
 const byKey = (schema) => new Map(schema.map((s) => [s.key, s]));
 

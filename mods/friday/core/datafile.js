@@ -53,9 +53,10 @@ export async function copyAside(io, path, text, nowMs) {
  * expected content. A broken file is copied aside first and replaced; a newer version throws and
  * the file is left alone. A rejected write is retried once from a fresh read (the change is applied
  * again), and counted as done if the file already holds the intended text.
- * Returns the written value.
+ * Returns the written value. `countLandedWrites: false` skips that last check, for writers that must
+ * not mistake another copy's identical write for their own (alerts, R11): they re-read and mutate again.
  */
-export async function updateJson(io, path, mutate, nowMs = Date.now()) {
+export async function updateJson(io, path, mutate, nowMs = Date.now(), countLandedWrites = true) {
   let lastError;
   for (let attempt = 0; attempt < 2; attempt++) {
     const read = await readJson(io, path);
@@ -69,7 +70,7 @@ export async function updateJson(io, path, mutate, nowMs = Date.now()) {
       return next;
     } catch (e) {
       lastError = e;
-      if ((await io.read(path)) === text) return next;
+      if (countLandedWrites && (await io.read(path)) === text) return next;
     }
   }
   throw lastError;

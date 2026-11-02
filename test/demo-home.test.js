@@ -22,8 +22,9 @@ test("the demo home has the mod, fixture settings and a seeded cache, and no sec
   const files = walk(dir).map((p) => p.slice(dir.length + 1).replaceAll("\\", "/"));
   assert.ok(files.includes("mods/friday/main.js") && files.includes("mods/friday/mod.json"));
   assert.ok(files.includes("data/friday/settings.json") && files.includes("data/friday/pr-reviews.md"));
-  assert.ok(!files.some((f) => /secret/i.test(f)), "no secrets.json");
-  const everything = walk(dir).map((p) => readFileSync(p, "utf8")).join("\n");
+  assert.ok(!files.some((f) => /^data[/].*secret/i.test(f)), "no secrets.json");
+  // The mod's own code names the secrets it reads; the data the demo seeds must not hold any.
+  const everything = walk(dir).filter((p) => !p.slice(dir.length + 1).replaceAll("\\", "/").startsWith("mods/")).map((p) => readFileSync(p, "utf8")).join("\n");
   assert.ok(!/jira_token|ado_pat|ical_url|password|api[_-]?key/i.test(everything), "no secret keys anywhere");
   const settings = JSON.parse(readFileSync(join(dir, "data/friday/settings.json"), "utf8"));
   assert.deepEqual(settings, { version: 1, ledger: { path: ledgerPath } });

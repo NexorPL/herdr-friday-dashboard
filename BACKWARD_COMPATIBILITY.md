@@ -15,26 +15,33 @@ herdr-core saves each Friday pane as `{ "mod": "friday", "props": { "widget": "<
 
 ### `settings.json` (in force since Phase 1, keys added per phase)
 
-`settings.json` lives in the data folder, `${appHome()}/data/friday/`. Phase 1 defines one key, `ledger.path`; each later phase adds its own, as listed in the spec's Data Model. `mods/friday/core/settings.js` is the one definition of the keys. The file carries `"version": 1`; a Friday that finds a newer version leaves the file alone and names the version it needs.
+`settings.json` lives in the data folder, `${appHome()}/data/friday/`. Phase 1 defines `ledger.path`; Phase 3 adds `calendar.email`, `calendar.interval` (default `10m`), `calendar.alerts` (default `["5m"]`) and `notifications.sound` (`none`, `done` or `blocked`; default `done`); each later phase adds its own, as listed in the spec's Data Model. `mods/friday/core/settings.js` is the one definition of the keys. The file carries `"version": 1`; a Friday that finds a newer version leaves the file alone and names the version it needs.
 
 - **Breaking:** removing or renaming a key, changing a key's meaning or default, or rejecting a value that used to be accepted.
 - **Required path:** keep reading the old key for at least one minor release, and say so in Settings; note the migration in the release notes.
+
+### Secrets file `secrets.json` (in force since Phase 3, entries per phase)
+
+`secrets.json` is in the data folder and holds `jira_token`, `ado_pat` and `ical_url` (R12), each only once its phase ships: Phase 3 ships `ical_url`, the secret iCal address of the calendar. It is plain text, written only by Settings and read only by the code that fetches. A secret never goes into `shared()`, `localStorage`, logs, errors, toasts, fixtures, screenshots or git.
+
+- **Breaking:** renaming an entry, which loses a stored secret.
+- **Required path:** read the old name, write the new one, then drop the old.
+
+### `alerts.json` (in force since Phase 3)
+
+`{ "version": 1, "sent": { "<uid>|<occurrence_start>|<offset_min>": <sent_at ms> } }`, written with compare-and-swap (R11). It is why a meeting alert is shown once per occurrence and offset, also across restarts.
+
+- **Breaking:** changing the key format, which makes every alert in the next minute fire a second time.
+- **Required path:** read the old keys until their entries are pruned (7 days), and raise `version`.
 
 ## Planned
 
 ### Data-folder files and their `version` (Phase 1 onward)
 
-`settings.json` already follows this (see In force). The other files are `worklogs.json`, `alerts.json`, `prs.json`, `prices.json` and `tokens.json`, each with `"version"`. `worklogs.json` is the input to R09, so losing it can double-log time in Jira.
+`settings.json` already follows this (see In force). The other files are `worklogs.json`, `prs.json`, `prices.json` and `tokens.json`, each with `"version"`. `worklogs.json` is the input to R09, so losing it can double-log time in Jira.
 
 - **Breaking:** a change that loses data or needs the owner to delete a file.
 - **Required path:** raise `version` and migrate the file forward on read. A Friday that finds a newer version leaves the file alone and names the version it needs.
-
-### Secrets file (Phase 2, entries per phase)
-
-`secrets.json` holds `jira_token`, `ado_pat` and `ical_url` (R12).
-
-- **Breaking:** renaming an entry, which loses a stored secret.
-- **Required path:** read the old name, write the new one, then drop the old.
 
 ### The owner's `.md` files (Phase 2 onward)
 

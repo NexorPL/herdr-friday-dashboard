@@ -16,7 +16,7 @@ herdr-app moves, resizes and splits the panes. There is no background process: t
 
 Scope, rules and decisions are in `.ai/specs/product-brief.md` (ids `D`, `R`, `N`; D34–D42 and R12 are the herdr-app ones). The design and the six-phase plan are in `.ai/specs/2026-11-02-friday-on-herdr-app.md`. The terminal plugin this replaces lives on, frozen, in `NexorPL/herdr-friday`; port its rules and fixtures, not its structure.
 
-Status: Phase 1 (the foundation and the review ledger) is built: the summary, ledger and Settings, the hub, and the tests. Phases 2 to 6 follow the spec.
+Status: Phases 1 and 3 (the foundation and the review ledger; meetings and alerts) are built: the summary, ledger, meetings and Settings, the hub, and the tests. Phases 2, 4, 5 and 6 follow the spec.
 
 ## Task routing
 
@@ -29,7 +29,7 @@ Status: Phase 1 (the foundation and the review ledger) is built: the summary, le
 | Pure logic and tests | `mods/friday/core/`, `test/` | `core/` never imports `herdr`; every rule there has a `node --test` test; fixtures are anonymized, with no company keys, links or names (D32). |
 | Jira | TODO: `mods/friday/core/jira.js` (Phase 2); first-version spec, Outbound calls | Token scoped to `read:jira-work` and `write:jira-work`; the only writes are worklogs and their comments, each confirmed first (D10, D25, D27). |
 | Review ledger | `mods/friday/core/ledger.js`; `herdr-friday/src/ledger.rs` | Read only; never recount its minutes (R08); logging a day skips rows already logged (R09). |
-| Meetings | TODO: `mods/friday/core/meetings.js`, vendored `ical.js` (Phase 3) | The iCal address is a secret. Recurrence, EXDATE, RECURRENCE-ID and DST each have fixtures. |
+| Meetings and alerts | `mods/friday/core/meetings.js`, `core/calendar.js`, `core/alerts.js`, vendored `mods/friday/vendor/ical.js` | The iCal address is a secret (`secrets.json`, `ical_url`). Recurrence, EXDATE, RECURRENCE-ID and DST each have fixtures. Expansion starts near the window and has step budgets (QuickJS is slow); `alerts.json` is `{version, sent}`, keys `uid|ISO occurrence|offset_min`. |
 | Azure DevOps | TODO: `mods/friday/core/ado.js`, `core/prs.js` (Phase 4) | PAT scope Code (Read); no writes (N03). |
 | Todos, notes, priorities, favorites | TODO: `mods/friday/core/mdfile.js` (Phase 2) | Plain `.md` files owned by the owner; never delete a line or rewrite one Friday did not change; keep CRLF, BOM and a missing final newline (R10). |
 | Tokens and prices | TODO: `mods/friday/core/tokens/`, `core/pricing.js` (Phase 6); `herdr-friday/src/tokens/`, `src/pricing.rs` | Headline tokens = input + cache creation + output; cache read is its own column (R02). Copilot CLI is Later (D41). |

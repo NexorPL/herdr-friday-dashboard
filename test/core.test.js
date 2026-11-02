@@ -143,17 +143,21 @@ test("the opener gets the target as one argument, never through a shell", () => 
 });
 
 test("widget ids are the contract saved in the owner's tabs", () => {
-  assert.deepEqual(WIDGETS.map((w) => w.id), ["summary", "ledger"]);
+  assert.deepEqual(WIDGETS.map((w) => w.id), ["summary", "ledger", "meetings"]);
   assert.equal(widgetById("nope"), null);
-  assert.deepEqual(sourcesFor(["summary", "ledger", "ledger"]), ["ledger"]);
-  assert.deepEqual(DEFAULT_SPLITS, [["ledger", "down"]]);
+  assert.deepEqual(sourcesFor(["summary", "ledger", "ledger"]), ["ledger", "calendar"]);
+  assert.deepEqual(sourcesFor(["ledger"]), ["ledger"]);
+  assert.deepEqual(DEFAULT_SPLITS, [["ledger", "down"], ["meetings", "right"]]);
   for (const [widget] of DEFAULT_SPLITS) assert.ok(widgetById(widget));
   for (const w of WIDGETS) for (const source of w.sources) assert.ok(SOURCES[source], w.id);
 });
 
 test("the setup checklist lists only built sources", () => {
   const rows = checklist({ status: undefined, now: T });
-  assert.deepEqual(rows.map((r) => [r.id, r.state, r.section]), [["ledger", "todo", "ledger"]]);
+  assert.deepEqual(rows.map((r) => [r.id, r.state, r.section]), [["ledger", "todo", "ledger"], ["calendar", "todo", "calendar"]]);
+  const none = checklist({ status: { calendar: { ...succeeded(T), ok_at: null, not_set_up: true } }, now: T })[1];
+  assert.deepEqual([none.state, none.detail], ["todo", "needs the iCal address"]);
+  assert.equal(checklist({ status: { calendar: succeeded(T) }, now: T })[1].state, "ok");
   assert.equal(checklist({ status: { ledger: succeeded(T) }, now: T })[0].state, "ok");
   const bad = checklist({ status: { ledger: failed(null, T, 15, { message: "ledger not found at x.md" }) }, now: T })[0];
   assert.deepEqual([bad.state, bad.detail], ["error", "ledger not found at x.md"]);
@@ -173,7 +177,10 @@ test("the header's state line", async () => {
 test("the first pane arranges the default panes only when it is alone in its tab", async () => {
   const { planArrangement, splitTarget } = await import("../mods/friday/core/arrange.js");
   const alone = [{ pane: "p1", mod: "friday", tab: "t1" }];
-  assert.deepEqual(planArrangement(alone, DEFAULT_SPLITS), [{ pane: "p1", direction: "down", mod: "friday", props: { widget: "ledger" } }]);
+  assert.deepEqual(planArrangement(alone, DEFAULT_SPLITS), [
+    { pane: "p1", direction: "down", mod: "friday", props: { widget: "ledger" } },
+    { pane: "p1", direction: "right", mod: "friday", props: { widget: "meetings" } },
+  ]);
   assert.deepEqual(planArrangement([...alone, { pane: "p2", mod: "friday", tab: "t1" }], DEFAULT_SPLITS), [], "an arranged tab is left alone");
   assert.deepEqual(planArrangement([], DEFAULT_SPLITS), []);
   assert.deepEqual(planArrangement([{ pane: "p1", mod: null, tab: "t1" }], DEFAULT_SPLITS), [], "a lone terminal is not split");

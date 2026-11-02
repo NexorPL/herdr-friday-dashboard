@@ -58,13 +58,13 @@ export function refreshed(rec) {
 /** Should a fresh record replace the shared one? Only on a change, or when it has gone quiet. */
 export function shouldWrite(prev, next) {
   if (!prev) return true;
-  if (prev.error !== next.error || prev.rejected !== next.rejected || prev.backoff_until !== next.backoff_until) return true;
+  if (Boolean(prev.not_set_up) !== Boolean(next.not_set_up) || prev.error !== next.error || prev.rejected !== next.rejected || prev.backoff_until !== next.backoff_until) return true;
   return next.attempt_at - (prev.attempt_at ?? 0) >= REWRITE_AFTER;
 }
 
 /** The five states every widget shows: loading, ok, stale, error and not_set_up. */
 export function widgetState({ rec, configured = true, intervalSec = 60, now }) {
-  if (!configured) return "not_set_up";
+  if (!configured || rec?.not_set_up) return "not_set_up";
   if (!rec) return "loading";
   if (rec.error || rec.rejected) return "error";
   if (!rec.ok_at) return "loading";

@@ -4,9 +4,13 @@
 import { appHome, home, readTextFile, writeTextFile } from "herdr";
 import * as fs from "fs/promises";
 import { parseJson, updateJson } from "./core/datafile.js";
+import { claimAlerts as claimInto } from "./core/alerts.js";
+import { secretFrom, withSecret } from "./core/secrets.js";
 import { resolveSettings, setKey, expandHome } from "./core/settings.js";
 
 export const SETTINGS_FILE = "settings.json";
+export const SECRETS_FILE = "secrets.json";
+export const ALERTS_FILE = "alerts.json";
 
 export const dataDir = () => `${appHome()}/data/friday`;
 export const dataPath = (name) => `${dataDir()}/${name}`;
@@ -50,6 +54,56 @@ export async function loadSettings() {
 export async function saveSetting(key, value) {
   await ensureDataDir();
   return updateJson(io, dataPath(SETTINGS_FILE), (raw) => setKey(raw, key, value));
+}
+
+/** Sets several keys in one write, so a refused value leaves the file as it was. */
+export async function saveSettings(pairs) {
+  await ensureDataDir();
+  return updateJson(io, dataPath(SETTINGS_FILE), (raw) => pairs.reduce((r, [key, value]) => setKey(r, key, value), raw));
+}
+
+/**
+ * One secret from secrets.json, or null. Only the code that fetches calls this; the value stays in
+ * that call's memory and is never put in shared(), localStorage, a log, an error or a toast.
+ */
+export async function readSecret(name) {
+  try {
+    return secretFrom(parseJson(await readTextFile(dataPath(SECRETS_FILE))), name);
+  } catch {
+    return null;
+  }
+}
+
+/** Stores (or, for an empty value, removes) one secret. Resolves with nothing; throws without the value. */
+export async function saveSecret(name, value) {
+  await ensureDataDir();
+  await updateJson(io, dataPath(SECRETS_FILE), (raw) => withSecret(raw, name, value));
+}
+
+/** The `sent` map of alerts.json (empty when the file is missing or unreadable). */
+export async function readAlertsSent() {
+  try {
+    const p = parseJson(await readTextFile(dataPath(ALERTS_FILE)));
+    return p.state === "ok" && p.value.sent && typeof p.value.sent === "object" ? p.value.sent : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Records alerts as sent with a compare-and-swap write and returns the ones this call won (R11):
+ * a copy that lost a race finds the key already there and gets none. Throws if the file cannot
+ * be written, or is a newer version, and then nothing is sent.
+ */
+export async function claimAlerts(due, now) {
+  await ensureDataDir();
+  let claimed = [];
+  await updateJson(io, dataPath(ALERTS_FILE), (raw) => {
+    const r = claimInto(raw, due, now);
+    claimed = r.claimed;
+    return r.next;
+  }, Date.now(), false);
+  return claimed;
 }
 
 /** A path from settings with `~` expanded. */

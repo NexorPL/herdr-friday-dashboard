@@ -9,13 +9,14 @@ import { planArrangement, splitTarget } from "./core/arrange.js";
 import { stateText } from "./core/format.js";
 import { renderSummary } from "./widgets/summary.js";
 import { renderLedger, flatRows } from "./widgets/ledger.js";
+import { renderMeetings, meetingRows, joinRow } from "./widgets/meetings.js";
 import { SettingsDialog } from "./dialogs/settings.js";
 import { AddMenu } from "./dialogs/add.js";
 import { iconButton, note } from "./ui.js";
 import { openLink } from "./open.js";
 
 const DIALOGS = { settings: SettingsDialog, add: AddMenu };
-const BODIES = { summary: renderSummary, ledger: renderLedger };
+const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings };
 
 export default class Friday extends View {
   init(_props, cx) {
@@ -29,9 +30,12 @@ export default class Friday extends View {
     }
     this.widget = widgetById(p.widget);
     this.cursor = -1;
+    this.showPast = false; // meetings: h shows the past ones (R04)
+    this.message = null;
     this.handle = cx.focus_handle();
     this.hub = new Hub(this.widget ? [this.widget.id] : []);
     this.hub.start(cx);
+    if (this.widget && this.widget.id === "meetings") cx.timer.every(30_000, (cx) => cx.notify()); // rows go past
     if (this.widget && this.widget.id === "summary") {
       cx.timer.every(1000, (cx) => cx.notify()); // R05: the clock updates every second
       this.arrange(cx, 0);
@@ -70,12 +74,25 @@ export default class Friday extends View {
   }
 
   key(e, cx) {
+    if (this.widget && this.widget.id === "meetings") return this.meetingsKey(e, cx);
     if (!this.widget || this.widget.id !== "ledger") return;
     const ledger = this.hub.ledger();
     const rows = ledger ? flatRows(ledger.data) : [];
     if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
     else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
     else if (e.key === "enter" && rows[this.cursor]) openLink(rows[this.cursor].row.pr_url);
+    else if (e.key === "r") this.hub.refresh(cx);
+    else return;
+    cx.notify();
+  }
+
+  meetingsKey(e, cx) {
+    this.message = null;
+    const rows = meetingRows(this);
+    if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
+    else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
+    else if (e.key === "enter") joinRow(this, rows[this.cursor]);
+    else if (e.key === "h") { this.showPast = !this.showPast; this.cursor = -1; }
     else if (e.key === "r") this.hub.refresh(cx);
     else return;
     cx.notify();
