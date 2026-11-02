@@ -1,0 +1,11 @@
+{
+  "name": "herdr-friday-mod",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Friday: a work dashboard mod for herdr-app",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test"
+  }
+}

@@ -1,0 +1,8 @@
+// Kept equal to package.json's version by test/version.test.js.
+export const VERSION = "0.1.0";
+
+/** The herdr-app version Friday was last checked against (the README says the same). */
+export const CHECKED_AGAINST = "0.1.12";
+
+/** The command that reopens the Friday tab; shown in Settings and in the README. */
+export const REOPEN_COMMAND = `herdr-app do tab.new --name Friday --mod friday --props '{"widget":"summary"}'`;
