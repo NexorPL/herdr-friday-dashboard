@@ -13,6 +13,13 @@ herdr-core saves each Friday pane as `{ "mod": "friday", "props": { "widget": "<
 - **Breaking:** renaming the mod folder `friday` or a `widget` id, which turns saved panes into errors.
 - **Required path:** never rename an id. A replaced widget keeps answering to its old id.
 
+### Launcher `mod.open:friday` (in force)
+
+The owner's `keys.json` binds a key to `mod.open:friday`. It works through the `overlay` entry in `mods/friday/mod.json` and the launcher branch in `main.js` (`props().overlay` without `dialog` or `widget`), which selects or creates the Friday tab and closes its overlay.
+
+- **Breaking:** removing or renaming the `overlay` entry, or changing the launcher check so the open starts a widget or does nothing.
+- **Required path:** keep `mod.open:friday` working, and note any change in the release notes.
+
 ### `settings.json` (in force since Phase 1, keys added per phase)
 
 `settings.json` lives in the data folder, `${appHome()}/data/friday/`. Phase 1 defines `ledger.path`; Phase 3 adds `calendar.email`, `calendar.interval` (default `10m`), `calendar.alerts` (default `["5m"]`) and `notifications.sound` (`none`, `done` or `blocked`; default `done`); each later phase adds its own, as listed in the spec's Data Model. `mods/friday/core/settings.js` is the one definition of the keys. The file carries `"version": 1`; a Friday that finds a newer version leaves the file alone and names the version it needs.

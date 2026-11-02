@@ -2,10 +2,11 @@
 // panes of it. The same mod also draws its own dialogs, with `props().dialog`.
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { props, theme, panes, focused, run, openOverlay, nextCommand } from "herdr";
+import { props, theme, panes, spaces, focused, run, openOverlay, closeOverlay, nextCommand } from "herdr";
 import { Hub } from "./hub.js";
 import { WIDGETS, widgetById, DEFAULT_SPLITS } from "./core/widgets.js";
 import { planArrangement, splitTarget } from "./core/arrange.js";
+import { planLaunch } from "./core/launch.js";
 import { stateText } from "./core/format.js";
 import { renderSummary } from "./widgets/summary.js";
 import { renderLedger, flatRows } from "./widgets/ledger.js";
@@ -22,6 +23,16 @@ export default class Friday extends View {
   init(_props, cx) {
     // props() is null while `herdr-app check` loads the mod.
     const p = props() || {};
+    // `mod.open:friday` opens this mod with only props().overlay: act as the launcher and vanish (no hub, no timers).
+    if (p.overlay && !p.dialog && !p.widget) {
+      this.launcher = true;
+      closeOverlay(p.overlay); // first, so a failing run() leaves no overlay behind
+      const at = focused();
+      for (const [cmd, args] of planLaunch(panes(), spaces(), at?.space, at?.tab)) {
+        try { run(cmd, args); } catch { break; }
+      }
+      return;
+    }
     const Dialog = DIALOGS[p.dialog];
     if (Dialog) {
       this.dialog = new Dialog();
@@ -112,6 +123,7 @@ export default class Friday extends View {
   }
 
   render(cx) {
+    if (this.launcher) return div();
     if (this.dialog) return this.dialog.render(cx);
     const t = theme();
     const body = this.widget

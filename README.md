@@ -29,6 +29,10 @@ herdr-app do tab.new --name Friday --mod friday --props '{"widget":"summary"}'
 
 The first pane arranges the default panes when it is the only pane in its tab. After that, rearrange them with herdr-app. The tab is kept by herdr-core, so the command is needed once, and again only after you close the tab. Settings (the gear in a pane header) shows the same command.
 
+### Bind a hotkey
+
+`mod.open:friday` opens Friday's launcher, which selects the Friday tab (switching space if needed) or creates it when none exists. Bind it in `keys.json`, for example `"global": { "ctrl-alt-f": "mod.open:friday" }`. On Windows keyboards ctrl+alt is AltGr, so in some layouts the combination types a character instead of reaching herdr-app; pick another chord there. herdr-app's docs advise against ctrl+alt chords in general, so if the binding misbehaves, use another chord.
+
 ## Data
 
 Friday keeps its files in `${appHome()}/data/friday/` (by default `~/.config/herdr-app/data/friday/`). Settings and secrets are plain text there, protected only by your user account's file permissions.
