@@ -22,14 +22,14 @@ The owner's `keys.json` binds a key to `mod.open:friday`. It works through the `
 
 ### `settings.json` (in force since Phase 1, keys added per phase)
 
-`settings.json` lives in the data folder, `${appHome()}/data/friday/`. Phase 1 defines `ledger.path`; Phase 3 adds `calendar.email`, `calendar.interval` (default `10m`), `calendar.alerts` (default `["5m"]`) and `notifications.sound` (`none`, `done` or `blocked`; default `done`); Phase 2 adds `jira.site`, `jira.email`, `jira.token_kind` (`scoped` or `classic`; default `scoped`) and `jira.interval` (default `5m`); each later phase adds its own, as listed in the spec's Data Model. `mods/friday/core/settings.js` is the one definition of the keys. The file carries `"version": 1`; a Friday that finds a newer version leaves the file alone and names the version it needs.
+`settings.json` lives in the data folder, `${appHome()}/data/friday/`. Phase 1 defines `ledger.path`; Phase 3 adds `calendar.email`, `calendar.interval` (default `10m`), `calendar.alerts` (default `["5m"]`) and `notifications.sound` (`none`, `done` or `blocked`; default `done`); Phase 2 adds `jira.site`, `jira.email`, `jira.token_kind` (`scoped` or `classic`; default `scoped`) and `jira.interval` (default `5m`); Phase 4 adds `azure_devops.organization`, `azure_devops.project`, `azure_devops.repo` (the repo name) and `azure_devops.interval` (default `2m`); each later phase adds its own, as listed in the spec's Data Model. `mods/friday/core/settings.js` is the one definition of the keys. The file carries `"version": 1`; a Friday that finds a newer version leaves the file alone and names the version it needs.
 
 - **Breaking:** removing or renaming a key, changing a key's meaning or default, or rejecting a value that used to be accepted.
 - **Required path:** keep reading the old key for at least one minor release, and say so in Settings; note the migration in the release notes.
 
 ### Secrets file `secrets.json` (in force since Phase 3, entries per phase)
 
-`secrets.json` is in the data folder and holds `jira_token`, `ado_pat` and `ical_url` (R12), each only once its phase ships: Phase 3 ships `ical_url`, the secret iCal address of the calendar; Phase 2 ships `jira_token`, the Atlassian API token (scopes `read:jira-work` and `write:jira-work`), which can write worklogs. It is plain text, written only by Settings and read only by the code that fetches. A secret never goes into `shared()`, `localStorage`, logs, errors, toasts, fixtures, screenshots or git.
+`secrets.json` is in the data folder and holds `jira_token`, `ado_pat` and `ical_url` (R12), each only once its phase ships: Phase 3 ships `ical_url`, the secret iCal address of the calendar; Phase 2 ships `jira_token`, the Atlassian API token (scopes `read:jira-work` and `write:jira-work`), which can write worklogs; Phase 4 ships `ado_pat`, the Azure DevOps personal access token (scope Code (Read) only; Friday never writes to Azure DevOps). It is plain text, written only by Settings and read only by the code that fetches. A secret never goes into `shared()`, `localStorage`, logs, errors, toasts, fixtures, screenshots or git.
 
 - **Breaking:** renaming an entry, which loses a stored secret.
 - **Required path:** read the old name, write the new one, then drop the old.
@@ -55,11 +55,18 @@ One Jira key per line in the data folder, in the owner's order; other text on a 
 - **Breaking:** a format change that makes existing files unreadable, or that rewrites content Friday did not change.
 - **Required path:** always read the older format, and never reformat a file wholesale.
 
+### `prs.json` (in force since Phase 4)
+
+`{ "version": 1, "repos": { "<organization>/<project>/<repo>": { "baseline_set": bool, "prs": { "<id>": { title, author, created_at, is_draft, url, first_seen_at, last_seen_at, active, unseen, notified } } } } }`, written with compare-and-swap. It is why a new PR gets one toast (R11) and why the first fetch of a repo is a silent baseline, also across restarts. `notified` means no toast is owed (true for the baseline); a draft waits unnotified until it is ready. Inactive rows keep only `active`, `is_draft`, `notified` and `last_seen_at`, for 30 days, so a PR that comes back is not new again.
+
+- **Breaking:** renaming a field, changing what `notified` or `unseen` mean (which makes open PRs toast again or hides new ones), or changing the repo key shape (a new key starts a silent baseline, so the owner misses the PRs that arrived in between).
+- **Required path:** read the older shape, raise `version` and migrate forward on read.
+
 ## Planned
 
 ### Data-folder files and their `version` (Phase 1 onward)
 
-`settings.json` already follows this (see In force). `worklogs.json` is in force too (see above). The other files are `prs.json`, `prices.json` and `tokens.json`, each with `"version"`.
+`settings.json` already follows this (see In force). `worklogs.json` is in force too (see above). The other files are `prices.json` and `tokens.json`, each with `"version"`.
 
 - **Breaking:** a change that loses data or needs the owner to delete a file.
 - **Required path:** raise `version` and migrate the file forward on read. A Friday that finds a newer version leaves the file alone and names the version it needs.

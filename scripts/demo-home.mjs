@@ -5,8 +5,8 @@
 //   HERDR_APP_HOME=<that folder> herdr-app
 //
 // It writes the mod, a settings.json whose ledger path is the fixture ledger (dated to today) and a
-// made-up Jira site, favorites.md, and shared.json with the ledger and Jira issues as Friday would
-// have cached them (keys and titles are invented, D32). Without a token the Jira pane polls once
+// made-up Jira site and Azure DevOps organization, favorites.md, and shared.json with the ledger, Jira issues and pull requests as Friday would
+// have cached them (keys and titles are invented, D32). Without a token the Jira and PR panes poll once
 // and shows "not set up"; the seeded cache is for reading the shape and the first frame. It writes no secrets.json and no
 // token of any kind, and it refuses the real app home. Note: a second herdr-app window may share
 // the owner's herdr-core, so Phase 1's screenshots are taken from the real window instead (see the PR).
@@ -29,6 +29,14 @@ const DEMO_ISSUES = [
   ["DEMO-31", "Check the nightly build", "To Do", "new", "Low", true],
   ["DEMO-3", "Plan the next sprint", "In Progress", "indeterminate", "Medium", false],
 ].map(([key, summary, status, status_category, priority, assigned]) => ({ key, summary, status, status_category, priority, assigned, url: `${DEMO_JIRA.site}/browse/${key}` }));
+
+export const DEMO_ADO = { organization: "demo-org", project: "Demo", repo: "demo-app" };
+const ADO_KEY = `ado:${DEMO_ADO.organization}|${DEMO_ADO.project}|${DEMO_ADO.repo}`; // hub.js sourceKey("ado", ...)
+const DEMO_PRS = [
+  [812, "Add retry to the upload step", "Alex Demo", false, true],
+  [809, "Update the contributor guide", "Sam Example", false, false],
+  [805, "Bump the build tools", "Alex Demo", true, false],
+].map(([id, title, author, is_draft, unseen]) => ({ id, title, author, is_draft, unseen, url: `https://dev.azure.com/${DEMO_ADO.organization}/${DEMO_ADO.project}/_git/${DEMO_ADO.repo}/pullrequest/${id}` }));
 
 const norm = (p) => resolve(p).replaceAll("\\", "/").toLowerCase();
 
@@ -68,7 +76,7 @@ export function seed(dir, { today = new Date(), env = process.env } = {}) {
   const ledgerPath = `${home.replaceAll("\\", "/")}/data/friday/pr-reviews.md`;
   const ledgerText = datedLedger(readFileSync(join(root, "test", "fixtures", "ledger.md"), "utf8"), today);
   writeFileSync(ledgerPath, ledgerText);
-  writeFileSync(join(home, "data", "friday", "settings.json"), `${JSON.stringify({ version: 1, ledger: { path: ledgerPath }, jira: DEMO_JIRA }, null, 2)}\n`);
+  writeFileSync(join(home, "data", "friday", "settings.json"), `${JSON.stringify({ version: 1, ledger: { path: ledgerPath }, jira: DEMO_JIRA, azure_devops: DEMO_ADO }, null, 2)}\n`);
   writeFileSync(join(home, "data", "friday", "favorites.md"), "DEMO-3\nDEMO-99\n");
 
   const now = today.getTime();
@@ -76,7 +84,8 @@ export function seed(dir, { today = new Date(), env = process.env } = {}) {
     layout: "main",
     "friday.ledger": { data: newestDays(parseLedger(ledgerText), 120), hash: "demo", path: ledgerPath, ok_at: now, error: null, backoff_until: 0 },
     "friday.jira": { data: { issues: DEMO_ISSUES, missing: ["DEMO-99"], cloud_id: null, account_id: null, favorites: ["DEMO-3", "DEMO-99"], priorities: [] }, for: JIRA_KEY, ok_at: now },
-    "friday.status": { ledger: { ...succeeded(now), for: ledgerPath }, jira: { ...succeeded(now), for: JIRA_KEY } },
+    "friday.prs": { data: { prs: DEMO_PRS }, for: ADO_KEY, ok_at: now },
+    "friday.status": { ledger: { ...succeeded(now), for: ledgerPath }, jira: { ...succeeded(now), for: JIRA_KEY }, ado: { ...succeeded(now), for: ADO_KEY } },
   };
   writeFileSync(join(home, "shared.json"), `${JSON.stringify(shared)}\n`);
   return { home, ledgerPath };

@@ -1,6 +1,7 @@
 // The herdr-app side of fetching: the vendored parser, the fetch timeout and the machine's offset.
 import { fetchMeetings } from "./core/calendar.js";
 import { fetchJira, testMyself } from "./core/jira.js";
+import { fetchPrs, listRepos } from "./core/ado.js";
 
 let icalModule = null;
 /** ical.js loads through a dynamic import (spike note, question 6); once per copy. */
@@ -45,3 +46,11 @@ export const runJira = (cx, cfg, extra) => fetchJira(jiraDeps(cx), cfg, extra);
 
 /** Settings > Jira > Test: GET /myself. See core/jira.js. */
 export const runJiraTest = (cx, cfg) => testMyself(jiraDeps(cx), cfg);
+
+export const adoDeps = (cx) => ({ fetch: (u, o) => fetch(u, o), withTimeout: (p, ms) => withTimeout(cx, p, ms) });
+
+/** Fetches the chosen repo's active PRs; `cfg` is { organization, project, repo, pat }. See core/ado.js. */
+export const runAdo = (cx, cfg) => fetchPrs(adoDeps(cx), cfg);
+
+/** Settings > Azure DevOps > Test and the picker: the organization's repositories. See core/ado.js. */
+export const runAdoTest = (cx, cfg) => listRepos(adoDeps(cx), cfg);
