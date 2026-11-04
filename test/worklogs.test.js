@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { validateLogTime, offsetText, startedText, durationText, worklogRecord, addRecord, recordsOf } from "../mods/friday/core/worklogs.js";
 import { favoriteKeys, typedKey, favoriteRows, addFavorite } from "../mods/friday/core/favorites.js";
-import { adfComment, postWorklog, listWorklogs, commentText } from "../mods/friday/core/jira.js";
+import { isJiraKey } from "../mods/friday/core/ledger.js";
+import { jiraKeys, adfComment, postWorklog, listWorklogs, commentText } from "../mods/friday/core/jira.js";
 
 const NOW = Date.UTC(2026, 10, 4, 13, 5); // 14:05 at +60
 const OFF = 60;
@@ -76,9 +77,12 @@ test("the worklog record has the data-model fields, once per Jira id", () => {
 test("favorites.md: keys in file order, once, ignoring text without a key", () => {
   assert.deepEqual(favoriteKeys(null), []);
   assert.deepEqual(favoriteKeys(""), []);
-  assert.deepEqual(favoriteKeys("# Favorites\r\nABC-2\r\n- XYZ-1 the big one\r\nnotes\r\nABC-2 again\r\nA-1\n"), ["ABC-2", "XYZ-1"]);
+  assert.deepEqual(favoriteKeys("# Favorites\r\nABC-2\r\n- XYZ-1 the big one\r\nnotes\r\nABC-2 again\r\nA-1\n"), ["ABC-2", "XYZ-1", "A-1"]);
   assert.equal(typedKey(" abc-12 "), "ABC-12");
   for (const bad of ["", "abc", "ABC-", "A B-1", "ABC-1; rm", null]) assert.equal(typedKey(bad), null, String(bad));
+  // the same keys everywhere: what the ledger calls a key, the add form and the scanner accept too
+  for (const k of ["B-3", "A1-2", "ABC-123"]) assert.deepEqual([isJiraKey(k), typedKey(k), jiraKeys(k)], [true, k, [k]], k);
+  for (const bad of ["1A-2", "a-1", "A-"]) assert.deepEqual([isJiraKey(bad), jiraKeys(bad)], [false, []], bad);
 });
 
 test("favorite rows: loaded, missing (logging off) and not yet fetched", () => {

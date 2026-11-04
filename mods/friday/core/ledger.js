@@ -37,9 +37,11 @@ function link(cell) {
   return [cell.slice(1, at), cell.slice(at + 2, -1)];
 }
 
-/** `PROJ-123`: capitals and digits starting with a capital, a dash, then digits. */
+/** The one definition of a Jira key, `PROJ-123`: capitals and digits starting with a capital, a dash, then digits. */
+export const JIRA_KEY = "[A-Z][A-Z0-9]*-[0-9]+";
+
 export function isJiraKey(text) {
-  return /^[A-Z][A-Z0-9]*-[0-9]+$/.test(text);
+  return new RegExp(`^${JIRA_KEY}$`).test(text);
 }
 
 /** The first Jira key in `text`, as a word of its own, or null. */

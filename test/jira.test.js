@@ -53,7 +53,7 @@ test("the key set is built from missing, empty and full files", () => {
   assert.deepEqual(keySet(fav, pri), ["ABC-2", "ABC-10", "NOPE-9", "XYZ-1"]);
   assert.deepEqual(keySet(null, "ABC-1"), ["ABC-1"]);
   assert.equal(keySet(Array.from({ length: 80 }, (_, i) => `KEY-${i + 1}`).join("\n"), null).length, 40);
-  assert.deepEqual(jiraKeys("A1-2, B-3."), ["A1-2"]); // B has one letter: not a key
+  assert.deepEqual(jiraKeys("A1-2, B-3."), ["A1-2", "B-3"]); // one definition of a key, shared with the ledger
 });
 
 test("rows: priority first, then key in project and number order; others are not mine", () => {

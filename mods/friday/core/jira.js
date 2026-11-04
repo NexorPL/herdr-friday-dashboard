@@ -3,6 +3,7 @@
 // Authorization header and nowhere else: every error here is built from "jira" and a status, never
 // from a URL, header, body or the text of a rejection (those can quote the token or the site).
 import { httpError, networkError, rejectsToken } from "./backoff.js";
+import { JIRA_KEY } from "./ledger.js";
 
 export const FETCH_TIMEOUT_MS = 15_000;
 export const API_HOST = "https://api.atlassian.com";
@@ -10,7 +11,7 @@ export const API_HOST = "https://api.atlassian.com";
 export const MAX_EXTRA_KEYS = 40;
 const MAX_PAGES = 5;
 
-const KEY = /(?<![A-Za-z0-9])[A-Z][A-Z0-9]+-\d+(?![A-Za-z0-9])/g;
+const KEY = new RegExp(`(?<![A-Za-z0-9])${JIRA_KEY}(?![A-Za-z0-9])`, "g");
 
 /** The `https://host` of a typed site (`acme.atlassian.net` or a full address), or null. */
 export function siteOrigin(site) {
