@@ -126,7 +126,7 @@ test("R09 is applied again just before writing: a worklog added since the plan s
   assert.equal(j.calls.post.length, 0);
 });
 
-test("a row the owner selects on purpose is written without the check", async () => {
+test("a row the owner selects on purpose is written after a look for its own worklog", async () => {
   const j = jira();
   const records = [];
   const p = plan([row("A-1", 812, 15)], records, { "A-1": [remoteLog("55")] });
@@ -134,7 +134,48 @@ test("a row the owner selects on purpose is written without the check", async ()
   p[0].selected = true;
   const { results } = await run(j, p, records);
   assert.deepEqual(results.map((r) => r.result), ["logged"]);
-  assert.equal(j.calls.list.length, 0);
+  assert.equal(j.calls.post.length, 1);
+});
+
+test("deliberate row, POST times out after Jira saved it: the retry adopts the saved worklog and never posts again", async () => {
+  const j = jira({ postFail: { 1: "lost" } });
+  const records = [];
+  const p = plan([row("A-1", 812, 15)], records, { "A-1": [remoteLog("55")] });
+  p[0].selected = true;
+  const first = await run(j, p, records);
+  assert.deepEqual(first.results.map((r) => r.result), ["unknown"]);
+  const second = await run(j, retrySelection(p, first.results), records);
+  assert.deepEqual(second.results.map((r) => [r.result, r.message]), [["logged", "found in Jira"]]);
+  assert.equal(j.calls.post.length, 1, "no second POST");
+  assert.equal(records.length, 1);
+  assert.equal(records[0].ledger_pr, 812);
+  assert.equal(records[0].origin, "ledger");
+  assert.equal(records[0].jira_id, j.db["A-1"].at(-1).id);
+});
+
+test("deliberate row, retry where Jira did not save it: it is posted", async () => {
+  const j = jira();
+  const realPost = j.post;
+  let n = 0;
+  j.post = async (k, b) => (++n === 1 ? (j.calls.post.push([k, b]), { ok: false, unknown: true, message: "jira: timed out after 15 s" }) : realPost(k, b));
+  const records = [];
+  const p = plan([row("A-1", 812, 15)], records, { "A-1": [remoteLog("55")] });
+  p[0].selected = true;
+  const first = await run(j, p, records);
+  assert.deepEqual(first.results.map((r) => r.result), ["unknown"]);
+  const second = await run(j, retrySelection(p, first.results), records);
+  assert.deepEqual(second.results.map((r) => r.result), ["logged"]);
+  assert.equal(j.calls.post.length, 2);
+});
+
+test("deliberate row whose worklogs cannot be read is not posted", async () => {
+  const j = jira();
+  j.list = async () => ({ ok: false, status: 503, message: "jira: HTTP 503" });
+  const p = plan([row("A-1", 812, 15)], [], { "A-1": [remoteLog("55")] });
+  p[0].selected = true;
+  const { results } = await run(j, p, []);
+  assert.deepEqual(results.map((r) => r.result), ["failed"]);
+  assert.equal(j.calls.post.length, 0);
 });
 
 test("rows that cannot be logged are never posted, even if selected", async () => {
@@ -172,4 +213,13 @@ test("a throwing network call and a failing worklogs.json write do not lose the 
   const nofile = await logDay(p, { day: DAY, records: [], offsetMin: OFF, now: 5, list: j.list, post: j.post, saveRecord: async () => { throw new Error("disk"); } });
   assert.deepEqual(nofile.map((r) => [r.result, r.message]), [["logged", "worklogs.json could not be written"]]);
   assert.equal(summaryText([]), "Nothing to log.");
+});
+
+import { sameInstant } from "../mods/friday/core/worklogs.js";
+
+test("started texts are compared as instants", () => {
+  assert.equal(sameInstant("2026-11-04T09:20:00.000+0100", "2026-11-04T08:20:00.000Z"), true);
+  assert.equal(sameInstant("2026-11-04T09:20:00.000+0100", "2026-11-04T09:20:00+01:00"), true);
+  assert.equal(sameInstant("2026-11-04T09:20:00.000+0100", "2026-11-04T09:21:00.000+0100"), false);
+  assert.equal(sameInstant("nope", "nope"), false);
 });

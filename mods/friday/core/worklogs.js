@@ -106,6 +106,17 @@ export async function submitLogTime({ form, key, now, offsetMin, post, saveRecor
 
 // ---- Logging a ledger day (D27, R09) ----
 
+/** The same moment: `started` texts compared as instants, whatever their offset notation (`+0100` or `+01:00`). */
+export function sameInstant(a, b) {
+  const ms = (t) => {
+    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:?\d{2})$/.exec(String(t));
+    if (!m) return NaN;
+    const off = m[8] === "Z" ? 0 : (m[8][0] === "-" ? -1 : 1) * (Number(m[8].slice(1, 3)) * 60 + Number(m[8].slice(-2)));
+    return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6], Number((m[7] ?? "0").padEnd(3, "0").slice(0, 3))) - off * 60_000;
+  };
+  return ms(a) === ms(b) && !Number.isNaN(ms(a));
+}
+
 /** The comment of a ledger worklog (D27). */
 export const reviewComment = (pr) => `Code review PR !${pr}`;
 
@@ -199,13 +210,21 @@ export async function logDay(plan, { day, records, offsetMin, now, list, post, s
     if (stopped) { results.push({ ...base, result: "not_tried" }); continue; }
     if (p.status === "no_key" || p.status === "no_time") { results.push({ ...base, result: "skipped", message: planText(p) }); continue; }
     const deliberate = p.status === "friday" || p.status === "outside";
-    if (!deliberate) {
-      const l = await list(p.key).catch(() => ({ ok: false, message: "jira: request failed" }));
-      if (!l.ok) {
-        results.push({ ...base, result: "failed", message: l.message });
-        if (l.status === 401 || l.status === 403) stopped = true;
-        continue;
-      }
+    // Every row is looked up first, deliberate ones too: an earlier POST of this very row that timed
+    // out may have been saved, and a retry must not send it a second time.
+    const l = await list(p.key).catch(() => ({ ok: false, message: "jira: request failed" }));
+    if (!l.ok) {
+      results.push({ ...base, result: "failed", message: l.message });
+      if (l.status === 401 || l.status === 403) stopped = true;
+      continue;
+    }
+    let jiraId = null;
+    let note;
+    if (deliberate) {
+      const mine = new Set(kept.map((w) => w.jira_id));
+      const found = l.worklogs.find((w) => !mine.has(w.id) && w.comment === p.comment && sameInstant(w.started, p.started));
+      if (found) { jiraId = found.id; note = "found in Jira"; }
+    } else {
       const row = { task: { key: p.key }, pr: p.pr, minutes: p.minutes };
       const now2 = rowStatus(row, { day, records: kept, remote: l.worklogs });
       if (now2 === "friday" || now2 === "outside") {
@@ -213,18 +232,21 @@ export async function logDay(plan, { day, records, offsetMin, now, list, post, s
         continue;
       }
     }
-    let r;
-    try {
-      r = await post(p.key, { started: p.started, seconds: p.seconds, comment: p.comment });
-    } catch {
-      r = { ok: false, unknown: true, message: "jira: request failed" };
+    if (jiraId === null) {
+      let r;
+      try {
+        r = await post(p.key, { started: p.started, seconds: p.seconds, comment: p.comment });
+      } catch {
+        r = { ok: false, unknown: true, message: "jira: request failed" };
+      }
+      if (!r.ok) {
+        results.push({ ...base, result: r.unknown ? "unknown" : "failed", message: r.unknown ? MAYBE_SAVED : r.message });
+        if (r.status === 401 || r.status === 403) stopped = true;
+        continue;
+      }
+      jiraId = r.id;
     }
-    if (!r.ok) {
-      results.push({ ...base, result: r.unknown ? "unknown" : "failed", message: r.unknown ? MAYBE_SAVED : r.message });
-      if (r.status === 401 || r.status === 403) stopped = true;
-      continue;
-    }
-    const rec = worklogRecord({ jiraId: r.id, key: p.key, day, started: p.started, seconds: p.seconds, comment: p.comment, origin: "ledger", ledgerPr: p.pr, now });
+    const rec = worklogRecord({ jiraId, key: p.key, day, started: p.started, seconds: p.seconds, comment: p.comment, origin: "ledger", ledgerPr: p.pr, now });
     kept.push(rec);
     try {
       await saveRecord(rec);
@@ -232,7 +254,7 @@ export async function logDay(plan, { day, records, offsetMin, now, list, post, s
       results.push({ ...base, result: "logged", jira_id: rec.jira_id, message: "worklogs.json could not be written" });
       continue;
     }
-    results.push({ ...base, result: "logged", jira_id: rec.jira_id });
+    results.push({ ...base, result: "logged", jira_id: rec.jira_id, ...(note ? { message: note } : {}) });
   }
   progress(results.length, chosen.length);
   return results;
