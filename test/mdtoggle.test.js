@@ -46,7 +46,7 @@ test("two equal lines under two headings: the hint decides only when it still po
   assert.equal(toggleCheckbox(same, row("- [ ] email", false), 3), "## Work\n- [ ] email\n## Home\n- [x] email\n");
   assert.equal(toggleCheckbox(same, row("- [ ] email", false), 1), "## Work\n- [x] email\n## Home\n- [ ] email\n");
   // three lines were added on top: hint 3 is now a heading and two lines match, so nothing is flipped
-  const moved = "x\ny\n## Work\n- [ ] email\n## Home\n- [ ] email\n";
+  const moved = "x\ny\nz\n## Work\n- [ ] email\n## Home\n- [ ] email\n";
   assert.equal(toggleCheckbox(moved, row("- [ ] email", false), 3), null);
 });
 
