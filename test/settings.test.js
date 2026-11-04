@@ -14,8 +14,8 @@ const TEST = [
 ];
 const resolve = (raw) => resolveSettings(raw, TEST);
 
-test("the schema holds the ledger path and Phase 3's calendar keys", () => {
-  assert.deepEqual(SCHEMA.map((s) => s.key), ["ledger.path", "calendar.email", "calendar.interval", "calendar.alerts", "notifications.sound"]);
+test("the schema holds the ledger path, the calendar keys, the Jira keys and the Azure DevOps keys", () => {
+  assert.deepEqual(SCHEMA.map((s) => s.key), ["ledger.path", "calendar.email", "calendar.interval", "calendar.alerts", "jira.site", "jira.email", "jira.token_kind", "jira.interval", "azure_devops.organization", "azure_devops.project", "azure_devops.repo", "azure_devops.interval", "notifications.sound"]);
   const { values } = resolveSettings({});
   assert.deepEqual(values.calendar, { email: null, interval: "10m", alerts: ["5m"] });
   assert.equal(values.notifications.sound, "done");
@@ -90,7 +90,7 @@ test("wrong types are invalid, a blank required text counts as unset", () => {
 test("unknown keys are reported, files.dir included", () => {
   const { unknown } = resolveSettings({ version: 1, files: { dir: "~/friday" }, ledger: { nope: 1 }, extra: 5 });
   assert.deepEqual(unknown, ["files.dir", "ledger.nope", "extra"]);
-  assert.deepEqual(resolveSettings({ jira: { site: "https://a.test" } }).unknown, ["jira.site"], "later phases' keys are kept, not known yet");
+  assert.deepEqual(resolveSettings({ tokens: { interval: "1m" } }).unknown, ["tokens.interval"], "later phases' keys are kept, not known yet");
 });
 
 test("a settings value that is not an object gives the defaults", () => {
@@ -109,7 +109,7 @@ test("setKey names the key it refuses", () => {
   assert.throws(() => setKey({}, "x.interval", "0s", TEST), (e) => e instanceof SettingsError && e.key === "x.interval");
   assert.throws(() => setKey({}, "ledger.path", ""), (e) => e.key === "ledger.path");
   assert.throws(() => setKey({}, "nope.key", 1), (e) => e.key === "nope.key");
-  assert.throws(() => setKey({}, "jira.interval", "5m"), (e) => e.key === "jira.interval", "a later phase's key is unknown now");
+  assert.throws(() => setKey({}, "tokens.interval", "1m"), (e) => e.key === "tokens.interval", "a later phase's key is unknown now");
 });
 
 test("an empty text value removes a required key", () => {

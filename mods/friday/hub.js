@@ -4,9 +4,11 @@
 // the result to shared("friday.<source>") and its record to shared("friday.status"); every other
 // copy re-renders from those values. A lost race costs nothing, because only the lease holder reads.
 import { shared, setShared, readTextFile, notify, playSound } from "herdr";
-import { loadSettings, resolvePath, readSecret, readAlertsSent, claimAlerts } from "./store.js";
+import { loadSettings, resolvePath, readSecret, readDataText, readAlertsSent, claimAlerts, recordPrs, markPrsSeen } from "./store.js";
+import { repoKey, prToast } from "./core/prs.js";
 import { dueAlerts, alertText } from "./core/alerts.js";
-import { runCalendar, offsetNow } from "./net.js";
+import { runCalendar, runJira, runAdo, offsetNow } from "./net.js";
+import { keySet, jiraKeys } from "./core/jira.js";
 import { localDay } from "./core/meetings.js";
 import { parseInterval, parseDurations } from "./core/durations.js";
 import { loadLedger, parseLedger, newestDays } from "./core/ledger.js";
@@ -19,6 +21,10 @@ export const STATUS = "friday.status";
 export const LEDGER = "friday.ledger";
 /** { data: { meetings, day, note }, for, ok_at }: today and tomorrow; no secret is ever in it. */
 export const MEETINGS = "friday.meetings";
+/** { data: { issues, missing, cloud_id, account_id, favorites, priorities }, for, ok_at }: no token or other secret is ever in it. */
+export const JIRA = "friday.jira";
+/** { data: { prs: [{ id, title, author, is_draft, unseen, url }] }, for, ok_at }: no PAT or other secret is ever in it. */
+export const PRS = "friday.prs";
 /** Settings bumps this after a save, so every copy rereads settings.json within a second. */
 export const SETTINGS_REV = "friday.settings_rev";
 
@@ -44,8 +50,19 @@ function hash(text) {
 export function sourceKey(source, values) {
   if (source === "ledger") return resolvePath(values.ledger.path);
   if (source === "calendar") return `calendar:${values.calendar.email ?? ""}`;
+  if (source === "jira") {
+    const j = values.jira;
+    return `jira:${j.site ?? ""}|${j.email ?? ""}|${j.token_kind}`;
+  }
+  if (source === "ado") {
+    const a = values.azure_devops;
+    return `ado:${a.organization ?? ""}|${a.project ?? ""}|${a.repo ?? ""}`;
+  }
   return source;
 }
+
+/** The settings section that holds a source's interval. */
+const INTERVAL_SECTION = { calendar: "calendar", jira: "jira", ado: "azure_devops" };
 
 /** The status records that belong to what is configured now (a changed ledger path starts over). */
 export function currentStatus(values) {
@@ -98,9 +115,10 @@ export class Hub {
     });
   }
 
-  /** Seconds between fetches: calendar.interval for the calendar, a fixed one for the rest. */
+  /** Seconds between fetches: the interval setting for the calendar, Jira and Azure DevOps, a fixed one for the rest. */
   interval(source) {
-    return source === "calendar" ? (parseInterval(this.settings.values.calendar.interval) ?? SOURCES.calendar.interval) : SOURCES[source].interval;
+    const setting = INTERVAL_SECTION[source] ? this.settings.values[INTERVAL_SECTION[source]].interval : null;
+    return (setting && parseInterval(setting)) || SOURCES[source].interval;
   }
 
   key(source) {
@@ -156,6 +174,8 @@ export class Hub {
       }
     }
     if (source === "calendar") next = await this.fetchCalendar(cx, prev, key, interval, now);
+    if (source === "jira") next = await this.fetchJira(cx, prev, key, interval, now);
+    if (source === "ado") next = await this.fetchAdo(cx, prev, key, interval, now);
     if (shouldWrite(prev, next) || prev?.for !== key) setShared(STATUS, { ...(shared(STATUS) ?? {}), [source]: next });
   }
 
@@ -200,6 +220,73 @@ export class Hub {
     return { ...succeeded(now), for: key };
   }
 
+  /** The token is read here, used for one fetch and dropped; only issues go to shared(). */
+  async fetchJira(cx, prev, key, interval, now) {
+    const j = this.settings.values.jira;
+    const token = await readSecret("jira_token");
+    if (!token || !j.site || !j.email) {
+      if (shared(JIRA)) setShared(JIRA, null);
+      return { ...succeeded(now), ok_at: null, not_set_up: true, for: key };
+    }
+    const fav = await readDataText("favorites.md");
+    const pri = await readDataText("priorities.md");
+    const old = shared(JIRA);
+    const kept = old?.for === key ? old.data : {};
+    const r = await runJira(cx, { site: j.site, email: j.email, kind: j.token_kind, token }, { keys: keySet(fav, pri), cloudId: kept.cloud_id ?? null, accountId: kept.account_id ?? null });
+    if (!r.ok) return { ...failed(prev, now, interval, { status: r.status ?? null, message: r.message }), for: key };
+    // The widgets need to know which keys are favorites and which are priorities, in file order.
+    const data = { ...r.value, favorites: jiraKeys(fav).slice(0, 200), priorities: jiraKeys(pri).slice(0, 200) };
+    if (!old || old.for !== key || JSON.stringify(old.data) !== JSON.stringify(data)) setShared(JIRA, { data, for: key, ok_at: now });
+    return { ...succeeded(now), for: key };
+  }
+
+  /**
+   * The PAT is read here, used for one fetch and dropped; only PR rows go to shared(). The fetch is
+   * recorded in prs.json first, which decides what is new and owes a toast (R11); the first fetch of
+   * a repo is the baseline and shows none. A toast is recorded before it is shown, so a failed one
+   * is not repeated.
+   */
+  async fetchAdo(cx, prev, key, interval, now) {
+    const a = this.settings.values.azure_devops;
+    const pat = await readSecret("ado_pat");
+    if (!pat || !a.organization || !a.project || !a.repo) {
+      if (shared(PRS)) setShared(PRS, null);
+      return { ...succeeded(now), ok_at: null, not_set_up: true, for: key };
+    }
+    const r = await runAdo(cx, { organization: a.organization, project: a.project, repo: a.repo, pat });
+    if (!r.ok) return { ...failed(prev, now, interval, { status: r.status ?? null, message: r.message }), for: key };
+    let rec;
+    try {
+      rec = await recordPrs(repoKey(a.organization, a.project, a.repo), r.value.prs, now);
+    } catch (e) {
+      const newer = Number.isInteger(e?.version) ? `ado: prs.json is version ${e.version}; this Friday reads version 1` : "ado: could not update prs.json";
+      return { ...failed(prev, now, interval, { message: newer }), for: key };
+    }
+    const old = shared(PRS);
+    const data = { prs: rec.rows.slice(0, 100) };
+    if (!old || old.for !== key || JSON.stringify(old.data) !== JSON.stringify(data)) setShared(PRS, { data, for: key, ok_at: now });
+    for (const pr of rec.owed) notify({ ...prToast(pr), level: "info" });
+    const sound = this.settings.values.notifications.sound;
+    if (rec.owed.length && sound !== "none") playSound(sound);
+    return { ...succeeded(now), for: key };
+  }
+
+  /** Enter or a click on a PR (`id`), or "mark all seen" (null): clears the mark in prs.json and in shared(). */
+  markSeen(cx, id) {
+    const key = this.key("ado");
+    const a = this.settings.values.azure_devops;
+    cx.spawn(async (cx) => {
+      try {
+        const rows = await markPrsSeen(repoKey(a.organization, a.project, a.repo), id);
+        const cur = shared(PRS);
+        if (cur && cur.for === key) setShared(PRS, { ...cur, data: { prs: rows.slice(0, 100) } });
+      } catch {
+        // the mark stays; the next click tries again
+      }
+      cx.notify();
+    });
+  }
+
   /** ↻: make the sources due now; the lease holder reads them within a few seconds. */
   refresh(cx) {
     const status = { ...(shared(STATUS) ?? {}) };
@@ -222,6 +309,18 @@ export class Hub {
   meetings() {
     const m = shared(MEETINGS);
     return m && m.for === this.key("calendar") && !this.status().calendar?.not_set_up ? m : null;
+  }
+
+  /** Jira issues as shared, only while they belong to the configured site and e-mail. */
+  jira() {
+    const m = shared(JIRA);
+    return m && m.for === this.key("jira") && !this.status().jira?.not_set_up ? m : null;
+  }
+
+  /** Pull requests as shared, only while they belong to the configured organization and repo. */
+  prs() {
+    const m = shared(PRS);
+    return m && m.for === this.key("ado") && !this.status().ado?.not_set_up ? m : null;
   }
 
   /** loading, ok, stale, error or not_set_up for a source. */

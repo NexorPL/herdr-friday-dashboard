@@ -3,15 +3,21 @@
 // (BACKWARD_COMPATIBILITY.md). A phase adds its widgets here when it builds them.
 
 export const WIDGETS = [
-  { id: "summary", title: "Summary", sources: ["ledger", "calendar"] },
+  { id: "summary", title: "Summary", sources: ["ledger", "calendar", "jira", "ado"] },
   { id: "ledger", title: "Review ledger", sources: ["ledger"] },
   { id: "meetings", title: "Meetings", sources: ["calendar"] },
+  { id: "jira", title: "Jira", sources: ["jira"] },
+  { id: "favorites", title: "Favorites", sources: ["jira"] },
+  { id: "prs", title: "Pull requests", sources: ["ado"] },
+  { id: "priorities", title: "Priorities", sources: ["jira"] },
+  { id: "todos", title: "Todos", sources: [] },
+  { id: "notes", title: "Notes", sources: [] },
 ];
 
 export const widgetById = (id) => WIDGETS.find((w) => w.id === id) ?? null;
 
 /** What the first pane of a new Friday tab splits in, in order: [widget, direction]. */
-export const DEFAULT_SPLITS = [["ledger", "down"], ["meetings", "right"]];
+export const DEFAULT_SPLITS = [["ledger", "down"], ["meetings", "right"], ["jira", "down"], ["prs", "down"]];
 
 /** The sources the hub polls, and how often (seconds). A phase adds its own. */
 export const SOURCES = {
@@ -20,6 +26,10 @@ export const SOURCES = {
   // The calendar's lease holder also runs the alert loop, so it keeps the lease between fetches.
   // `interval` is the default of calendar.interval, which the hub reads from settings.
   calendar: { interval: 600, persistent: true },
+  // `interval` is the default of jira.interval.
+  jira: { interval: 300 },
+  // `interval` is the default of azure_devops.interval.
+  ado: { interval: 120 },
 };
 
 /** The sources a set of widgets needs. */

@@ -6,11 +6,21 @@ import * as fs from "fs/promises";
 import { parseJson, updateJson } from "./core/datafile.js";
 import { claimAlerts as claimInto } from "./core/alerts.js";
 import { secretFrom, withSecret } from "./core/secrets.js";
+import { addRecord, recordsOf } from "./core/worklogs.js";
+import { addFavorite } from "./core/favorites.js";
+import { applyFetch, markSeen, rowsFor } from "./core/prs.js";
+import { isMissingError, isTooLargeError } from "./core/mdfile.js";
+import { toggleTodo, addEntry } from "./core/lists.js";
 import { resolveSettings, setKey, expandHome } from "./core/settings.js";
 
 export const SETTINGS_FILE = "settings.json";
 export const SECRETS_FILE = "secrets.json";
 export const ALERTS_FILE = "alerts.json";
+export const WORKLOGS_FILE = "worklogs.json";
+export const FAVORITES_FILE = "favorites.md";
+export const PRS_FILE = "prs.json";
+/** The owner's lists by widget id (D26, D40). */
+export const LIST_FILES = { todos: "todos.md", notes: "notes.md", priorities: "priorities.md" };
 
 export const dataDir = () => `${appHome()}/data/friday`;
 export const dataPath = (name) => `${dataDir()}/${name}`;
@@ -80,6 +90,64 @@ export async function saveSecret(name, value) {
   await updateJson(io, dataPath(SECRETS_FILE), (raw) => withSecret(raw, name, value));
 }
 
+/** A text file of the data folder (favorites.md, priorities.md), or null when it does not exist. */
+export async function readDataText(name) {
+  try {
+    return await readTextFile(dataPath(name));
+  } catch {
+    return null;
+  }
+}
+
+/** The records in worklogs.json (what Friday wrote to Jira); none when the file is missing or unreadable. */
+export async function readWorklogRecords() {
+  try {
+    return recordsOf(parseJson(await readTextFile(dataPath(WORKLOGS_FILE))));
+  } catch {
+    return [];
+  }
+}
+
+/** Appends one record to worklogs.json (compare-and-swap, once per Jira id). Throws if it cannot. */
+export async function saveWorklogRecord(record) {
+  await ensureDataDir();
+  await updateJson(io, dataPath(WORKLOGS_FILE), (raw) => addRecord(raw, record));
+}
+
+/** favorites.md as a file of the R10 writer: a missing file reads as null and is created by the first add. */
+const mdIo = {
+  // null (a missing file) lets the first add create it; any other error is a failed read, never an empty file.
+  read: (path) => readTextFile(path).catch((e) => (isMissingError(e) ? null : Promise.reject(e))),
+  write: (path, text, expected) => writeTextFile(path, text, expected).then(() => undefined),
+};
+
+/** Adds a key to favorites.md. { ok, changed } or { ok: false, message }. */
+export async function addToFavorites(key) {
+  await ensureDataDir();
+  return addFavorite(mdIo, dataPath(FAVORITES_FILE), key);
+}
+
+/** One list file: { ok: true, text } (text is null when the file does not exist) or { ok: false, error } for a real read error ("file too large" or "could not read the file"). */
+export async function readList(kind) {
+  try {
+    return { ok: true, text: await mdIo.read(dataPath(LIST_FILES[kind])) };
+  } catch (e) {
+    return { ok: false, error: isTooLargeError(e) ? "file too large" : "could not read the file" };
+  }
+}
+
+/** Flips one todo of todos.md. { ok, changed } or { ok: false, message }. */
+export async function toggleInTodos(row) {
+  await ensureDataDir();
+  return toggleTodo(mdIo, dataPath(LIST_FILES.todos), row);
+}
+
+/** Appends a line to todos.md, notes.md or priorities.md. { ok, changed } or { ok: false, message }. */
+export async function addToList(kind, text) {
+  await ensureDataDir();
+  return addEntry(mdIo, dataPath(LIST_FILES[kind]), kind, text);
+}
+
 /** The `sent` map of alerts.json (empty when the file is missing or unreadable). */
 export async function readAlertsSent() {
   try {
@@ -104,6 +172,34 @@ export async function claimAlerts(due, now) {
     return r.next;
   }, Date.now(), false);
   return claimed;
+}
+
+/**
+ * Records a successful PR fetch in prs.json (compare-and-swap) and returns { owed, rows }: the new
+ * PRs that need a toast, already marked notified in the file (R11), and the repo's active rows.
+ * Throws if the file cannot be written or is a newer version, and then nothing is shown.
+ */
+export async function recordPrs(key, fetched, now) {
+  await ensureDataDir();
+  let result = { owed: [], rows: [] };
+  await updateJson(io, dataPath(PRS_FILE), (raw) => {
+    const r = applyFetch(raw, key, fetched, now);
+    result = { owed: r.owed, rows: rowsFor(r.next, key) };
+    return r.next;
+  }, now, false);
+  return result;
+}
+
+/** Clears the "new" mark of one PR (`id`) or of every PR of the repo (null); returns the repo's rows. */
+export async function markPrsSeen(key, id) {
+  await ensureDataDir();
+  let rows = [];
+  await updateJson(io, dataPath(PRS_FILE), (raw) => {
+    const next = markSeen(raw, key, id);
+    rows = rowsFor(next, key);
+    return next;
+  }, Date.now(), false);
+  return rows;
 }
 
 /** A path from settings with `~` expanded. */

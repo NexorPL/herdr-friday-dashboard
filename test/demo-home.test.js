@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, readdirSync, existsSync, writeFileSync, statSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
-import { seed, datedLedger } from "../scripts/demo-home.mjs";
+import { seed, datedLedger, DEMO_JIRA, DEMO_ADO } from "../scripts/demo-home.mjs";
 import { parseLedger } from "../mods/friday/core/ledger.js";
 
 const fixture = readFileSync(new URL("./fixtures/ledger.md", import.meta.url), "utf8");
@@ -27,7 +27,15 @@ test("the demo home has the mod, fixture settings and a seeded cache, and no sec
   const everything = walk(dir).filter((p) => !p.slice(dir.length + 1).replaceAll("\\", "/").startsWith("mods/")).map((p) => readFileSync(p, "utf8")).join("\n");
   assert.ok(!/jira_token|ado_pat|ical_url|password|api[_-]?key/i.test(everything), "no secret keys anywhere");
   const settings = JSON.parse(readFileSync(join(dir, "data/friday/settings.json"), "utf8"));
-  assert.deepEqual(settings, { version: 1, ledger: { path: ledgerPath } });
+  assert.deepEqual(settings, { version: 1, ledger: { path: ledgerPath }, jira: DEMO_JIRA, azure_devops: DEMO_ADO });
+  assert.equal(readFileSync(join(dir, "data/friday/favorites.md"), "utf8"), "DEMO-3\nDEMO-99\n");
+  const cached = JSON.parse(readFileSync(join(dir, "shared.json"), "utf8"));
+  assert.ok(cached["friday.jira"].data.issues.length > 0);
+  assert.equal(cached["friday.jira"].for, `jira:${DEMO_JIRA.site}|${DEMO_JIRA.email}|scoped`);
+  assert.equal(JSON.stringify(cached).includes("Basic "), false);
+  assert.equal(cached["friday.prs"].for, `ado:${DEMO_ADO.organization}|${DEMO_ADO.project}|${DEMO_ADO.repo}`);
+  assert.ok(cached["friday.prs"].data.prs.some((p) => p.unseen) && cached["friday.prs"].data.prs.some((p) => p.is_draft));
+  assert.equal(JSON.stringify(cached).includes("PATSECRET"), false);
   const shared = JSON.parse(readFileSync(join(dir, "shared.json"), "utf8"));
   assert.equal(shared["friday.ledger"].path, ledgerPath);
   assert.equal(shared["friday.status"].ledger.for, ledgerPath);
