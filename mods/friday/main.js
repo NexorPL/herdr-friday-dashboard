@@ -14,6 +14,9 @@ import { renderMeetings, meetingRows, joinRow } from "./widgets/meetings.js";
 import { renderJira, jiraRows } from "./widgets/jira.js";
 import { renderPrs, prRows, openPr } from "./widgets/prs.js";
 import { renderFavorites, favoriteList, favoritesFile, logRow } from "./widgets/favorites.js";
+import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, listFile } from "./widgets/lists.js";
+import { AddLineDialog } from "./dialogs/addline.js";
+import { readList } from "./store.js";
 import { LogTimeDialog, AddFavoriteDialog } from "./dialogs/jira-dialogs.js";
 import { LogDayDialog } from "./dialogs/logday.js";
 import { SettingsDialog } from "./dialogs/settings.js";
@@ -21,8 +24,9 @@ import { AddMenu } from "./dialogs/add.js";
 import { iconButton, note } from "./ui.js";
 import { openLink, openPath } from "./open.js";
 
-const DIALOGS = { settings: SettingsDialog, add: AddMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog };
-const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, jira: renderJira, favorites: renderFavorites, prs: renderPrs };
+const DIALOGS = { settings: SettingsDialog, add: AddMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog, addline: AddLineDialog };
+const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, jira: renderJira, favorites: renderFavorites, prs: renderPrs, todos: renderTodos, notes: renderNotes, priorities: renderPriorities };
+const LISTS = ["todos", "notes", "priorities"];
 
 export default class Friday extends View {
   init(_props, cx) {
@@ -48,9 +52,15 @@ export default class Friday extends View {
     this.cursor = -1;
     this.showPast = false; // meetings: h shows the past ones (R04)
     this.message = null;
+    this.list = { text: null, loaded: false, error: null }; // todos, notes, priorities: the file as last read
+    this.busy = false; // a todo toggle is in flight
     this.handle = cx.focus_handle();
     this.hub = new Hub(this.widget ? [this.widget.id] : []);
     this.hub.start(cx);
+    if (this.widget && LISTS.includes(this.widget.id)) {
+      this.reload(cx);
+      cx.timer.every(3000, (cx) => this.reload(cx));
+    }
     if (this.widget && this.widget.id === "meetings") cx.timer.every(30_000, (cx) => cx.notify()); // rows go past
     if (this.widget && this.widget.id === "summary") {
       cx.timer.every(1000, (cx) => cx.notify()); // R05: the clock updates every second
@@ -65,6 +75,19 @@ export default class Friday extends View {
         else if (command === "add" && this.widget && this.widget.id === "summary") this.openAdd();
         cx.notify();
       }
+    });
+  }
+
+  /** Reads this pane's list file (the files have no mtime, so a short poll catches edits made by hand). */
+  async readInto() {
+    const r = await readList(this.widget.id);
+    this.list = r.ok ? { text: r.text, loaded: true, error: null } : { ...this.list, loaded: true, error: "could not read the file" };
+  }
+
+  reload(cx) {
+    cx.spawn(async (cx) => {
+      await this.readInto();
+      cx.notify();
     });
   }
 
@@ -90,6 +113,7 @@ export default class Friday extends View {
   }
 
   key(e, cx) {
+    if (this.widget && LISTS.includes(this.widget.id)) return this.listKey(e, cx);
     if (this.widget && this.widget.id === "meetings") return this.meetingsKey(e, cx);
     if (this.widget && this.widget.id === "jira") return this.jiraKey(e, cx);
     if (this.widget && this.widget.id === "favorites") return this.favoritesKey(e, cx);
@@ -128,6 +152,25 @@ export default class Friday extends View {
     else if (e.key === "a") this.openAddFavorite();
     else if (e.key === "e") openPath(favoritesFile());
     else if (e.key === "r") this.hub.refresh(cx);
+    else return;
+    cx.notify();
+  }
+
+  openAddLine() {
+    openOverlay({ mod: "friday", kind: "dialog", width: 380, height: 210, props: { dialog: "addline", list: this.widget.id } });
+  }
+
+  listKey(e, cx) {
+    const id = this.widget.id;
+    const rows = id === "todos" ? todoList(this) : id === "notes" ? noteList(this) : priorityList(this);
+    this.message = null;
+    if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
+    else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
+    else if (id === "todos" && (e.key === "space" || e.key === " " || e.key === "enter")) toggleTodoRow(this, rows[this.cursor], cx);
+    else if (id === "priorities" && e.key === "enter" && rows[this.cursor]?.url) openLink(rows[this.cursor].url);
+    else if (e.key === "a") this.openAddLine();
+    else if (e.key === "e") openPath(listFile(id));
+    else if (e.key === "r") { this.reload(cx); this.hub.refresh(cx); }
     else return;
     cx.notify();
   }
@@ -173,7 +216,7 @@ export default class Friday extends View {
     return h_flex().h(28).px(10).gap(4).flex_none().items_center().border_b(1).border_color(t.border)
       .child(div().flex_none().text_size(12).font_semibold().child(w ? w.title : "Friday"))
       .child(div().flex_1().truncate().pl(6).text_size(11).text_color(state === "error" ? t.ansi1 : t.dim).child(source ? stateText(state, rec) : ""))
-      .child(iconButton(t, "fr-refresh", "↻", (_e, cx) => this.hub.refresh(cx)))
+      .child(iconButton(t, "fr-refresh", "↻", (_e, cx) => { this.hub.refresh(cx); if (LISTS.includes(w?.id)) this.reload(cx); }))
       .child(iconButton(t, "fr-settings", "⚙", () => this.openSettings(null)))
       .child(iconButton(t, "fr-add", "+", () => this.openAdd()));
   }

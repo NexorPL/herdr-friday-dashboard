@@ -50,7 +50,7 @@ The owner's `keys.json` binds a key to `mod.open:friday`. It works through the `
 
 ### `favorites.md` (in force since Phase 2)
 
-One Jira key per line in the data folder, in the owner's order; other text on a line is kept and ignored. Friday only adds a key, as a line of its own, under R10: no line is ever deleted or rewritten, and CRLF or LF per line, a BOM and a missing final newline are kept (`core/mdfile.js`). `priorities.md` is read only for its Jira keys until Phase 4.
+One Jira key per line in the data folder, in the owner's order; other text on a line is kept and ignored. Friday only adds a key, as a line of its own, under R10: no line is ever deleted or rewritten, and CRLF or LF per line, a BOM and a missing final newline are kept (`core/mdfile.js`). `priorities.md` is also read by the priorities widget (see below).
 
 - **Breaking:** a format change that makes existing files unreadable, or that rewrites content Friday did not change.
 - **Required path:** always read the older format, and never reformat a file wholesale.
@@ -62,6 +62,13 @@ One Jira key per line in the data folder, in the owner's order; other text on a 
 - **Breaking:** renaming a field, changing what `notified` or `unseen` mean (which makes open PRs toast again or hides new ones), or changing the repo key shape (a new key starts a silent baseline, so the owner misses the PRs that arrived in between).
 - **Required path:** read the older shape, raise `version` and migrate forward on read.
 
+### `todos.md`, `notes.md` and `priorities.md` (in force since Phase 5)
+
+Plain Markdown in the data folder, owned by the owner (D26, D40); Friday and the owner both edit them. Friday reads the checkbox lines (`- [ ]` / `- [x]`) of `todos.md`, the lines of `notes.md` and the numbered or bulleted items of `priorities.md` (an item with a Jira key shows that issue's status). Its only writes are flipping the one character of a todo's checkbox and appending one line (`- [ ] text` to todos, `- text` to notes, the text to priorities), under R10: no line is ever deleted or rewritten, CRLF or LF per line, a BOM and a missing final newline are kept, and a target line that is gone gives "file changed, try again" (`core/mdfile.js`, `core/lists.js`). A done todo stays as `- [x]`. The widget ids `todos`, `notes` and `priorities` are in force too (see the widget ids above).
+
+- **Breaking:** a format change that makes existing files unreadable, or that rewrites content Friday did not change (R10).
+- **Required path:** always read the older format, and never reformat a file wholesale.
+
 ## Planned
 
 ### Data-folder files and their `version` (Phase 1 onward)
@@ -70,13 +77,6 @@ One Jira key per line in the data folder, in the owner's order; other text on a 
 
 - **Breaking:** a change that loses data or needs the owner to delete a file.
 - **Required path:** raise `version` and migrate the file forward on read. A Friday that finds a newer version leaves the file alone and names the version it needs.
-
-### The other `.md` files (Phase 4)
-
-These are `todos.md`, `notes.md` and `priorities.md` in the data folder; `favorites.md` is in force (see above).
-
-- **Breaking:** a format change that makes existing files unreadable, or that rewrites content Friday did not change (R10).
-- **Required path:** always read the older format, and never reformat a file wholesale.
 
 ### Token metric (Phase 6)
 

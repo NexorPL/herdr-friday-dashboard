@@ -13,8 +13,8 @@ import { offsetNow } from "../net.js";
 import { ymd } from "../core/format.js";
 import { button, note } from "../ui.js";
 
-const field = (t, state) => Input.new(state).h(32).px(10).rounded(8).border_1().border_color(t.input).bg(t.background).text_size(12.5).text_color(t.foreground);
-const label = (t, text) => div().text_size(11).text_color(t.dim).child(text);
+export const field = (t, state) => Input.new(state).h(32).px(10).rounded(8).border_1().border_color(t.input).bg(t.background).text_size(12.5).text_color(t.foreground);
+export const label = (t, text) => div().text_size(11).text_color(t.dim).child(text);
 
 /** Enter on a favorite: duration (required), date (default today) and comment (optional). */
 export class LogTimeDialog {
