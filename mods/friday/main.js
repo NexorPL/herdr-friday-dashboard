@@ -14,12 +14,13 @@ import { renderMeetings, meetingRows, joinRow } from "./widgets/meetings.js";
 import { renderJira, jiraRows } from "./widgets/jira.js";
 import { renderFavorites, favoriteList, favoritesFile, logRow } from "./widgets/favorites.js";
 import { LogTimeDialog, AddFavoriteDialog } from "./dialogs/jira-dialogs.js";
+import { LogDayDialog } from "./dialogs/logday.js";
 import { SettingsDialog } from "./dialogs/settings.js";
 import { AddMenu } from "./dialogs/add.js";
 import { iconButton, note } from "./ui.js";
 import { openLink, openPath } from "./open.js";
 
-const DIALOGS = { settings: SettingsDialog, add: AddMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog };
+const DIALOGS = { settings: SettingsDialog, add: AddMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog };
 const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, jira: renderJira, favorites: renderFavorites };
 
 export default class Friday extends View {
@@ -97,6 +98,7 @@ export default class Friday extends View {
     if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
     else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
     else if (e.key === "enter" && rows[this.cursor]) openLink(rows[this.cursor].row.pr_url);
+    else if (e.key === "l" || e.key === "L") this.openLogDay(rows[this.cursor]?.day ?? ledger?.data.days[0]?.date);
     else if (e.key === "r") this.hub.refresh(cx);
     else return;
     cx.notify();
@@ -104,6 +106,10 @@ export default class Friday extends View {
 
   openLogTime(row) {
     openOverlay({ mod: "friday", kind: "dialog", width: 420, height: 400, props: { dialog: "logtime", key: row.key, summary: row.summary } });
+  }
+
+  openLogDay(day) {
+    openOverlay({ mod: "friday", kind: "dialog", width: 520, height: 460, props: { dialog: "logday", day } });
   }
 
   openAddFavorite() {

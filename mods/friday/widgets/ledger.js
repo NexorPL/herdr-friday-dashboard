@@ -45,7 +45,8 @@ export function renderLedger(v) {
       return v_flex().gap(2)
         .child(h_flex().gap(8).items_center()
           .child(div().text_size(12).font_semibold().child(`${d.date} ${weekdayOf(d.date)}`))
-          .child(div().text_size(11).text_color(t.dim).child(total ? `${minutesText(total.minutes)} · ${total.runs} ${total.runs === 1 ? "run" : "runs"}` : "")))
+          .child(div().flex_1().text_size(11).text_color(t.dim).child(total ? `${minutesText(total.minutes)} · ${total.runs} ${total.runs === 1 ? "run" : "runs"}` : ""))
+          .child(button(t, `led-log-${d.date}`, "Log day (L)", () => v.openLogDay(d.date))))
         .children(d.rows.map((r) => {
           const i = ++index;
           const here = i === v.cursor;

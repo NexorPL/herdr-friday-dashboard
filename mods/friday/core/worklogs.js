@@ -103,3 +103,152 @@ export async function submitLogTime({ form, key, now, offsetMin, post, saveRecor
   say(`Logged ${durationText(v.seconds)} on ${key}.`, "ok");
   return true;
 }
+
+// ---- Logging a ledger day (D27, R09) ----
+
+/** The comment of a ledger worklog (D27). */
+export const reviewComment = (pr) => `Code review PR !${pr}`;
+
+const OUTSIDE = "logged outside Friday";
+const BY_FRIDAY = "logged by Friday";
+
+/**
+ * What R09 says about one ledger row, from Friday's records and the owner's worklogs on that task
+ * and day. `remote` is the list from core/jira.js listWorklogs for the row's task (null when it
+ * could not be read). A worklog Friday has a record of (by Jira id) is not "outside"; any other of
+ * the owner's worklogs on that task and day is, and then the row is skipped unless selected on purpose.
+ *   no_key, no_time    cannot be logged
+ *   friday             a record says Friday logged this PR's row that day
+ *   outside            the owner has a worklog on the task that day that Friday did not write
+ *   check_failed       the owner's worklogs could not be read; the row is checked again before writing
+ *   ready              not logged anywhere
+ */
+export function rowStatus(row, { day, records, remote }) {
+  if (!row.task) return "no_key";
+  if (!(row.minutes > 0)) return "no_time";
+  if (records.some((w) => w.origin === "ledger" && w.day === day && w.issue_key === row.task.key && w.ledger_pr === row.pr)) return "friday";
+  if (remote === null || remote === undefined) return "check_failed";
+  const mine = new Set(records.map((w) => w.jira_id));
+  return remote.some((w) => !mine.has(w.id)) ? "outside" : "ready";
+}
+
+/** `HH:MM` of the PR's first review run that day (D27). Times come padded and in file order. */
+export const firstRun = (row) => [...row.times].sort()[0];
+
+/**
+ * The rows of a ledger day as the dialog lists them. `remoteByKey` maps a task key to its listWorklogs
+ * result list (or null/undefined). `selected` is true only for `ready` rows. Seconds are the
+ * ledger's minutes (R08: never recounted); the start is the first run, in the zone `offsetMin`.
+ */
+export function planDay(rows, { day, records, remoteByKey, offsetMin }) {
+  return rows.map((row) => {
+    const status = rowStatus(row, { day, records, remote: row.task ? remoteByKey[row.task.key] : null });
+    const start = firstRun(row);
+    const [h, m] = start.split(":").map(Number);
+    return {
+      pr: row.pr,
+      key: row.task ? row.task.key : null,
+      minutes: row.minutes,
+      seconds: row.minutes * 60,
+      start,
+      started: startedText(dayStart(day, offsetMin) + (h * 60 + m) * 60_000, offsetMin),
+      comment: reviewComment(row.pr),
+      status,
+      selected: status === "ready",
+    };
+  });
+}
+
+/** The line of a row in the dialog, as in the first version: `[x] KEY-1 !812 15 min from 09:20`. */
+export function planText(p) {
+  const box = p.selected ? "[x]" : "[ ]";
+  if (p.status === "no_key") return `— !${p.pr} no Jira key`;
+  if (p.status === "no_time") return `— ${p.key} !${p.pr} no minutes`;
+  const tail = p.status === "friday" ? ` — ${BY_FRIDAY}` : p.status === "outside" ? ` — ${OUTSIDE}` : p.status === "check_failed" ? " — could not check Jira" : ` ${p.minutes} min from ${p.start}`;
+  return `${box} ${p.key} !${p.pr}${tail}`;
+}
+
+/** "N of M logged": rows that can be logged and already are, by Friday or outside it. */
+export function loggedCount(plan) {
+  const loggable = plan.filter((p) => p.status !== "no_key" && p.status !== "no_time");
+  return { logged: loggable.filter((p) => p.status === "friday" || p.status === "outside").length, of: loggable.length };
+}
+
+/**
+ * Writes the selected rows one after another. Before each POST that was not selected on purpose
+ * (a `friday` or `outside` row is deliberate), the owner's worklogs on the task are read again and R09
+ * is applied to the fresh answer, so a worklog that Jira saved but whose answer was lost (a timeout)
+ * shows up as "logged outside Friday" and is skipped: the same call is never sent blindly twice.
+ * The record is written right after each POST, so a second row on the same task is not mistaken for
+ * an outside worklog. A token rejected by Jira (401/403) stops the run.
+ *
+ * deps: list(key) -> listWorklogs result; post(key, body) -> postWorklog result;
+ * saveRecord(record); progress(done, total).
+ * Returns one result per selected row: { pr, key, result: "logged" | "skipped" | "failed" | "unknown"
+ * | "not_tried", message?, jira_id? }. "unknown" means the POST may have been saved.
+ */
+export async function logDay(plan, { day, records, offsetMin, now, list, post, saveRecord, progress = () => undefined }) {
+  const chosen = plan.filter((p) => p.selected);
+  const kept = [...records];
+  const results = [];
+  let stopped = false;
+  for (const p of chosen) {
+    const done = results.length;
+    progress(done, chosen.length);
+    const base = { pr: p.pr, key: p.key };
+    if (stopped) { results.push({ ...base, result: "not_tried" }); continue; }
+    if (p.status === "no_key" || p.status === "no_time") { results.push({ ...base, result: "skipped", message: planText(p) }); continue; }
+    const deliberate = p.status === "friday" || p.status === "outside";
+    if (!deliberate) {
+      const l = await list(p.key).catch(() => ({ ok: false, message: "jira: request failed" }));
+      if (!l.ok) {
+        results.push({ ...base, result: "failed", message: l.message });
+        if (l.status === 401 || l.status === 403) stopped = true;
+        continue;
+      }
+      const row = { task: { key: p.key }, pr: p.pr, minutes: p.minutes };
+      const now2 = rowStatus(row, { day, records: kept, remote: l.worklogs });
+      if (now2 === "friday" || now2 === "outside") {
+        results.push({ ...base, result: "skipped", message: now2 === "friday" ? BY_FRIDAY : OUTSIDE });
+        continue;
+      }
+    }
+    let r;
+    try {
+      r = await post(p.key, { started: p.started, seconds: p.seconds, comment: p.comment });
+    } catch {
+      r = { ok: false, unknown: true, message: "jira: request failed" };
+    }
+    if (!r.ok) {
+      results.push({ ...base, result: r.unknown ? "unknown" : "failed", message: r.unknown ? MAYBE_SAVED : r.message });
+      if (r.status === 401 || r.status === 403) stopped = true;
+      continue;
+    }
+    const rec = worklogRecord({ jiraId: r.id, key: p.key, day, started: p.started, seconds: p.seconds, comment: p.comment, origin: "ledger", ledgerPr: p.pr, now });
+    kept.push(rec);
+    try {
+      await saveRecord(rec);
+    } catch {
+      results.push({ ...base, result: "logged", jira_id: rec.jira_id, message: "worklogs.json could not be written" });
+      continue;
+    }
+    results.push({ ...base, result: "logged", jira_id: rec.jira_id });
+  }
+  progress(results.length, chosen.length);
+  return results;
+}
+
+/** "3 logged, 1 failed — R retries the failed one" (D27); only the counts that are not zero. */
+export function summaryText(results) {
+  const n = (r) => results.filter((x) => x.result === r).length;
+  const parts = [[n("logged"), "logged"], [n("skipped"), "skipped"], [n("failed") + n("unknown"), "failed"], [n("not_tried"), "not tried"]].filter(([c]) => c > 0).map(([c, w]) => `${c} ${w}`);
+  const retry = n("failed") + n("unknown") + n("not_tried");
+  if (!parts.length) return "Nothing to log.";
+  return parts.join(", ") + (retry ? ` — R retries ${retry === 1 ? "the failed one" : "the failed ones"}` : "");
+}
+
+/** The plan rows to select again for a retry: the ones that failed, may have been saved, or were not tried. */
+export function retrySelection(plan, results) {
+  const again = new Set(results.filter((r) => ["failed", "unknown", "not_tried"].includes(r.result)).map((r) => r.pr));
+  return plan.map((p) => ({ ...p, selected: again.has(p.pr) }));
+}
