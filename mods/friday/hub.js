@@ -7,7 +7,7 @@ import { shared, setShared, readTextFile, notify, playSound } from "herdr";
 import { loadSettings, resolvePath, readSecret, readDataText, readAlertsSent, claimAlerts } from "./store.js";
 import { dueAlerts, alertText } from "./core/alerts.js";
 import { runCalendar, runJira, offsetNow } from "./net.js";
-import { keySet } from "./core/jira.js";
+import { keySet, jiraKeys } from "./core/jira.js";
 import { localDay } from "./core/meetings.js";
 import { parseInterval, parseDurations } from "./core/durations.js";
 import { loadLedger, parseLedger, newestDays } from "./core/ledger.js";
@@ -20,7 +20,7 @@ export const STATUS = "friday.status";
 export const LEDGER = "friday.ledger";
 /** { data: { meetings, day, note }, for, ok_at }: today and tomorrow; no secret is ever in it. */
 export const MEETINGS = "friday.meetings";
-/** { data: { issues, missing, cloud_id }, for, ok_at }: no token or other secret is ever in it. */
+/** { data: { issues, missing, cloud_id, account_id, favorites, priorities }, for, ok_at }: no token or other secret is ever in it. */
 export const JIRA = "friday.jira";
 /** Settings bumps this after a save, so every copy rereads settings.json within a second. */
 export const SETTINGS_REV = "friday.settings_rev";
@@ -217,12 +217,15 @@ export class Hub {
       if (shared(JIRA)) setShared(JIRA, null);
       return { ...succeeded(now), ok_at: null, not_set_up: true, for: key };
     }
-    const keys = keySet(await readDataText("favorites.md"), await readDataText("priorities.md"));
+    const fav = await readDataText("favorites.md");
+    const pri = await readDataText("priorities.md");
     const old = shared(JIRA);
-    const cloudId = old?.for === key ? (old.data.cloud_id ?? null) : null;
-    const r = await runJira(cx, { site: j.site, email: j.email, kind: j.token_kind, token }, { keys, cloudId });
+    const kept = old?.for === key ? old.data : {};
+    const r = await runJira(cx, { site: j.site, email: j.email, kind: j.token_kind, token }, { keys: keySet(fav, pri), cloudId: kept.cloud_id ?? null, accountId: kept.account_id ?? null });
     if (!r.ok) return { ...failed(prev, now, interval, { status: r.status ?? null, message: r.message }), for: key };
-    if (!old || old.for !== key || JSON.stringify(old.data) !== JSON.stringify(r.value)) setShared(JIRA, { data: r.value, for: key, ok_at: now });
+    // The widgets need to know which keys are favorites and which are priorities, in file order.
+    const data = { ...r.value, favorites: jiraKeys(fav).slice(0, 200), priorities: jiraKeys(pri).slice(0, 200) };
+    if (!old || old.for !== key || JSON.stringify(old.data) !== JSON.stringify(data)) setShared(JIRA, { data, for: key, ok_at: now });
     return { ...succeeded(now), for: key };
   }
 

@@ -6,11 +6,15 @@ import * as fs from "fs/promises";
 import { parseJson, updateJson } from "./core/datafile.js";
 import { claimAlerts as claimInto } from "./core/alerts.js";
 import { secretFrom, withSecret } from "./core/secrets.js";
+import { addRecord, recordsOf } from "./core/worklogs.js";
+import { addFavorite } from "./core/favorites.js";
 import { resolveSettings, setKey, expandHome } from "./core/settings.js";
 
 export const SETTINGS_FILE = "settings.json";
 export const SECRETS_FILE = "secrets.json";
 export const ALERTS_FILE = "alerts.json";
+export const WORKLOGS_FILE = "worklogs.json";
+export const FAVORITES_FILE = "favorites.md";
 
 export const dataDir = () => `${appHome()}/data/friday`;
 export const dataPath = (name) => `${dataDir()}/${name}`;
@@ -87,6 +91,33 @@ export async function readDataText(name) {
   } catch {
     return null;
   }
+}
+
+/** The records in worklogs.json (what Friday wrote to Jira); none when the file is missing or unreadable. */
+export async function readWorklogRecords() {
+  try {
+    return recordsOf(parseJson(await readTextFile(dataPath(WORKLOGS_FILE))));
+  } catch {
+    return [];
+  }
+}
+
+/** Appends one record to worklogs.json (compare-and-swap, once per Jira id). Throws if it cannot. */
+export async function saveWorklogRecord(record) {
+  await ensureDataDir();
+  await updateJson(io, dataPath(WORKLOGS_FILE), (raw) => addRecord(raw, record));
+}
+
+/** favorites.md as a file of the R10 writer: a missing file reads as null and is created by the first add. */
+const mdIo = {
+  read: (path) => readTextFile(path).catch(() => null),
+  write: (path, text, expected) => writeTextFile(path, text, expected).then(() => undefined),
+};
+
+/** Adds a key to favorites.md. { ok, changed } or { ok: false, message }. */
+export async function addToFavorites(key) {
+  await ensureDataDir();
+  return addFavorite(mdIo, dataPath(FAVORITES_FILE), key);
 }
 
 /** The `sent` map of alerts.json (empty when the file is missing or unreadable). */

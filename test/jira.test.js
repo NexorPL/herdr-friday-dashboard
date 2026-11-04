@@ -71,7 +71,7 @@ test("fetchCloudId and testMyself: scoped goes through api.atlassian.com, classi
   assert.deepEqual(await fetchCloudId(deps(f), CFG.site), { ok: true, cloudId: CLOUD });
   assert.equal(f.calls[0].headers.Authorization, undefined); // tenant_info is unauthenticated
   const r = await testMyself(deps(f), CFG);
-  assert.deepEqual(r, { ok: true, name: "Me Myself", cloudId: CLOUD });
+  assert.deepEqual(r, { ok: true, name: "Me Myself", accountId: "x", cloudId: CLOUD });
   assert.equal(f.calls.at(-1).headers.Authorization, AUTH);
   const c = fake({ "https://acme.atlassian.net/rest/api/3/myself": json({ displayName: "Me" }) });
   assert.equal((await testMyself(deps(c), { ...CFG, kind: "classic" })).ok, true);
@@ -81,6 +81,7 @@ test("fetchCloudId and testMyself: scoped goes through api.atlassian.com, classi
 test("fetchJira pages my issues, then fetches the extra keys; a 404 marks a key missing", async () => {
   const f = fake({
     ...tenant,
+    [`${API}/rest/api/3/myself`]: json({ accountId: "acc-1" }),
     [`${API}/rest/api/3/search/jql`]: (url) => url.includes("nextPageToken=P2")
       ? json({ issues: [issue("ABC-2", "Low")], isLast: true })
       : json({ issues: [issue("ABC-1", "High")], isLast: false, nextPageToken: "P2" }),
@@ -92,13 +93,14 @@ test("fetchJira pages my issues, then fetches the extra keys; a 404 marks a key 
   assert.deepEqual(r.value.issues.map((i) => [i.key, i.assigned]), [["ABC-1", true], ["ABC-2", true], ["FAV-1", false]]);
   assert.deepEqual(r.value.missing, ["GONE-1"]);
   assert.equal(r.value.cloud_id, CLOUD);
+  assert.equal(r.value.account_id, "acc-1");
   assert.ok(f.calls.some((c) => c.url.includes("jql=assignee%20%3D%20currentUser()")));
   assert.equal(f.calls.filter((c) => c.url.includes("/issue/ABC-1")).length, 0); // already assigned
   assert.equal(JSON.stringify(r.value).includes(TOKEN), false);
   // a kept cloud id skips tenant_info
   f.calls.length = 0;
-  await fetchJira(deps(f), CFG, { cloudId: CLOUD });
-  assert.equal(f.calls.some((c) => c.url.includes("_edge")), false);
+  await fetchJira(deps(f), CFG, { cloudId: CLOUD, accountId: "acc-1" });
+  assert.equal(f.calls.some((c) => c.url.includes("_edge") || c.url.includes("/myself")), false);
 });
 
 test("every error path maps to a message without the token, the auth header or a URL", async () => {

@@ -38,7 +38,7 @@ export async function runCalendar(cx, url, me) {
   });
 }
 
-const jiraDeps = (cx) => ({ fetch: (u, o) => fetch(u, o), withTimeout: (p, ms) => withTimeout(cx, p, ms) });
+export const jiraDeps = (cx) => ({ fetch: (u, o) => fetch(u, o), withTimeout: (p, ms) => withTimeout(cx, p, ms) });
 
 /** Fetches my issues and the extra keys; `cfg` is { site, email, kind, token }. See core/jira.js. */
 export const runJira = (cx, cfg, extra) => fetchJira(jiraDeps(cx), cfg, extra);

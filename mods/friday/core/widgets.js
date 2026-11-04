@@ -7,6 +7,7 @@ export const WIDGETS = [
   { id: "ledger", title: "Review ledger", sources: ["ledger"] },
   { id: "meetings", title: "Meetings", sources: ["calendar"] },
   { id: "jira", title: "Jira", sources: ["jira"] },
+  { id: "favorites", title: "Favorites", sources: ["jira"] },
 ];
 
 export const widgetById = (id) => WIDGETS.find((w) => w.id === id) ?? null;

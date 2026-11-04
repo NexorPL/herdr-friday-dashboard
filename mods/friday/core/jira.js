@@ -82,23 +82,29 @@ export function myRows(issues) {
 const fail = (status, message) => ({ ok: false, status, message });
 
 /**
- * GETs `url` and parses the JSON answer: { ok: true, json } or { ok: false, status?, message }.
+ * Sends the request and parses the JSON answer: { ok: true, json } or { ok: false, status?, message }.
  * `auth` is the Authorization header value, or null for the unauthenticated tenant_info call.
+ * A POST (a write) that fails without a definite "no" (no status, a 5xx, an unreadable answer) may
+ * have been saved: the failure carries `unknown: true` and the caller must not blindly retry it.
  */
-async function get({ fetch, withTimeout }, url, auth) {
+async function send({ fetch, withTimeout }, url, auth, { method = "GET", body } = {}) {
+  const write = method === "POST";
+  const lost = (status, message) => ({ ...fail(status, message), ...(write && (status === undefined || status >= 500) ? { unknown: true } : {}) });
+  const headers = { Accept: "application/json", ...(auth ? { Authorization: auth } : {}), ...(body ? { "Content-Type": "application/json" } : {}) };
   let res;
   try {
-    res = await withTimeout(fetch(url, { headers: { Accept: "application/json", ...(auth ? { Authorization: auth } : {}) } }), FETCH_TIMEOUT_MS);
+    res = await withTimeout(fetch(url, body ? { method, headers, body: JSON.stringify(body) } : { headers }), FETCH_TIMEOUT_MS);
   } catch (e) {
-    return fail(undefined, networkError("jira", e, { timeoutMs: FETCH_TIMEOUT_MS }));
+    return lost(undefined, networkError("jira", e, { timeoutMs: FETCH_TIMEOUT_MS }));
   }
-  if (!res.ok) return fail(res.status, rejectsToken(res.status) ? "jira: token rejected" : httpError("jira", res.status));
+  if (!res.ok) return lost(res.status, rejectsToken(res.status) ? "jira: token rejected" : httpError("jira", res.status));
   try {
     return { ok: true, json: JSON.parse(await withTimeout(res.text(), FETCH_TIMEOUT_MS)) };
   } catch (e) {
-    return fail(undefined, e?.name === "FridayTimeout" ? networkError("jira", e, { stage: "body", timeoutMs: FETCH_TIMEOUT_MS }) : "jira: unexpected answer");
+    return lost(undefined, e?.name === "FridayTimeout" ? networkError("jira", e, { stage: "body", timeoutMs: FETCH_TIMEOUT_MS }) : "jira: unexpected answer");
   }
 }
+const get = (deps, url, auth) => send(deps, url, auth);
 
 /** The cloud id of a site (no auth), or a failure. */
 export async function fetchCloudId(deps, site) {
@@ -121,7 +127,7 @@ export async function testMyself(deps, cfg) {
   const b = await base(deps, cfg, null);
   if (!b.ok) return b;
   const r = await get(deps, `${b.base}/rest/api/3/myself`, authHeader(cfg.email, cfg.token));
-  return r.ok ? { ok: true, name: String(r.json?.displayName ?? ""), cloudId: b.cloudId } : r;
+  return r.ok ? { ok: true, name: String(r.json?.displayName ?? ""), accountId: String(r.json?.accountId ?? ""), cloudId: b.cloudId } : r;
 }
 
 const SEARCH = "assignee = currentUser() AND statusCategory != Done ORDER BY priority";
@@ -130,10 +136,11 @@ const FIELDS = "summary,status,priority";
 /**
  * The source's fetch: my assigned issues (paged by nextPageToken), then each extra key by itself.
  * A 404 marks a key missing; any other failure fails the whole fetch. `cfg` is { site, email,
- * kind, token }; `cloudId` is the one kept from the last poll, if any.
+ * kind, token }; `cloudId` and `accountId` are the ones kept from the last poll, if any (the
+ * account id comes from /myself and is what R09 matches the owner's worklogs by).
  * Returns { ok: true, value: { issues, missing, cloud_id } } or { ok: false, status?, message }.
  */
-export async function fetchJira(deps, cfg, { keys = [], cloudId = null } = {}) {
+export async function fetchJira(deps, cfg, { keys = [], cloudId = null, accountId = null } = {}) {
   const bad = validateJira(cfg);
   if (bad) return fail(undefined, bad);
   const origin = siteOrigin(cfg.site);
@@ -164,5 +171,50 @@ export async function fetchJira(deps, cfg, { keys = [], cloudId = null } = {}) {
     } else if (r.status === 404) missing.push(key);
     else return r;
   }
-  return { ok: true, value: { issues, missing, cloud_id: b.cloudId } };
+  let account = accountId;
+  if (!account) {
+    const me = await get(deps, `${b.base}/rest/api/3/myself`, auth);
+    if (!me.ok) return me;
+    account = String(me.json?.accountId ?? "") || null;
+  }
+  return { ok: true, value: { issues, missing, cloud_id: b.cloudId, account_id: account } };
+}
+
+/** An Atlassian Document Format body with one paragraph, for a worklog comment. */
+export const adfComment = (text) => ({ type: "doc", version: 1, content: [{ type: "paragraph", content: [{ type: "text", text }] }] });
+
+/** The plain text of a worklog comment (ADF or a string), for matching and display. */
+export function commentText(c) {
+  if (typeof c === "string") return c;
+  const walk = (n) => (n?.text ?? "") + (n?.content ?? []).map(walk).join("");
+  return walk(c);
+}
+
+/**
+ * The owner's worklogs on `key` that started in [after, before) ms: { ok: true, worklogs:
+ * [{ id, started, seconds, comment }] } filtered by author (R09), or a failure. `cfg` has the
+ * cloudId when the token is scoped, and `accountId` is the owner's.
+ */
+export async function listWorklogs(deps, cfg, key, { after, before, accountId }) {
+  const b = await base(deps, cfg, cfg.cloudId);
+  if (!b.ok) return b;
+  const r = await get(deps, `${b.base}/rest/api/3/issue/${encodeURIComponent(key)}/worklog?startedAfter=${after}&startedBefore=${before}`, authHeader(cfg.email, cfg.token));
+  if (!r.ok) return r;
+  const worklogs = (r.json?.worklogs ?? [])
+    .filter((w) => w?.author?.accountId === accountId)
+    .map((w) => ({ id: String(w.id), started: String(w.started ?? ""), seconds: Number(w.timeSpentSeconds) || 0, comment: commentText(w.comment) }));
+  return { ok: true, worklogs };
+}
+
+/**
+ * POST /issue/{key}/worklog with { started, seconds, comment }; `comment` is left out when empty.
+ * { ok: true, id } or a failure; `unknown: true` means it may have been saved (see send()).
+ */
+export async function postWorklog(deps, cfg, key, { started, seconds, comment }) {
+  const b = await base(deps, cfg, cfg.cloudId);
+  if (!b.ok) return b;
+  const body = { started, timeSpentSeconds: seconds, ...(comment ? { comment: adfComment(comment) } : {}) };
+  const r = await send(deps, `${b.base}/rest/api/3/issue/${encodeURIComponent(key)}/worklog`, authHeader(cfg.email, cfg.token), { method: "POST", body });
+  if (!r.ok) return r;
+  return r.json?.id ? { ok: true, id: String(r.json.id) } : { ...fail(undefined, "jira: unexpected answer"), unknown: true };
 }
