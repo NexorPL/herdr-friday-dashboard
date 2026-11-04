@@ -12,7 +12,7 @@ export const WIDGETS = [
 export const widgetById = (id) => WIDGETS.find((w) => w.id === id) ?? null;
 
 /** What the first pane of a new Friday tab splits in, in order: [widget, direction]. */
-export const DEFAULT_SPLITS = [["ledger", "down"], ["meetings", "right"]];
+export const DEFAULT_SPLITS = [["ledger", "down"], ["meetings", "right"], ["jira", "down"]];
 
 /** The sources the hub polls, and how often (seconds). A phase adds its own. */
 export const SOURCES = {
