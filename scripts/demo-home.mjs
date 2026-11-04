@@ -30,7 +30,7 @@ const DEMO_ISSUES = [
   ["DEMO-3", "Plan the next sprint", "In Progress", "indeterminate", "Medium", false],
 ].map(([key, summary, status, status_category, priority, assigned]) => ({ key, summary, status, status_category, priority, assigned, url: `${DEMO_JIRA.site}/browse/${key}` }));
 
-const norm =(p) => resolve(p).replaceAll("\\", "/").toLowerCase();
+const norm = (p) => resolve(p).replaceAll("\\", "/").toLowerCase();
 
 /** The folders that are a real app home: the default one, and the one HERDR_APP_HOME names. */
 function realHomes(env = process.env) {

@@ -59,7 +59,8 @@ One Jira key per line in the data folder, in the owner's order; other text on a 
 
 ### Data-folder files and their `version` (Phase 1 onward)
 
-`settings.json` already follows this (see In force). `worklogs.json` is in force too (see above). The other files are `prs.json`, `prices.json` and `tokens.json`, each with `"version"`. 
+`settings.json` already follows this (see In force). `worklogs.json` is in force too (see above). The other files are `prs.json`, `prices.json` and `tokens.json`, each with `"version"`.
+
 - **Breaking:** a change that loses data or needs the owner to delete a file.
 - **Required path:** raise `version` and migrate the file forward on read. A Friday that finds a newer version leaves the file alone and names the version it needs.
 
