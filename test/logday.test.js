@@ -93,7 +93,7 @@ test("partial failure: the rest is logged, the failed row can be retried, and it
   const p = plan([row("A-1", 1, 15), row("B-2", 2, 10), row("C-3", 3, 5)], records, { "A-1": [], "B-2": [], "C-3": [] });
   const first = await run(j, p, records);
   assert.deepEqual(first.results.map((r) => r.result), ["logged", "failed", "logged"]);
-  assert.equal(summaryText(first.results), "2 logged, 1 failed — R retries the failed one");
+  assert.equal(summaryText(first.results), "2 logged, 1 failed — use Retry failed");
   const again = retrySelection(p, first.results);
   assert.deepEqual(again.map((x) => x.selected), [false, true, false]);
   const second = await run(j, again, records);
@@ -109,7 +109,7 @@ test("timeout after Jira saved the worklog: the retry finds it, marks it outside
   const first = await run(j, p, records);
   assert.deepEqual(first.results.map((r) => [r.result, r.message]), [["unknown", MAYBE_SAVED]]);
   assert.equal(records.length, 0, "no record without a Jira id");
-  assert.equal(summaryText(first.results), "1 failed — R retries the failed one");
+  assert.equal(summaryText(first.results), "1 failed — use Retry failed");
   const second = await run(j, retrySelection(p, first.results), records);
   assert.deepEqual(second.results.map((r) => [r.result, r.message]), [["skipped", "logged outside Friday"]]);
   assert.equal(j.calls.post.length, 1, "the POST is never sent twice");
@@ -192,7 +192,7 @@ test("a rejected token stops the run; the rest are not tried and can be retried"
   const { results } = await run(j, p, []);
   assert.deepEqual(results.map((r) => r.result), ["failed", "not_tried"]);
   assert.equal(j.calls.post.length, 1);
-  assert.equal(summaryText(results), "1 failed, 1 not tried — R retries the failed ones");
+  assert.equal(summaryText(results), "1 failed, 1 not tried — use Retry failed");
   assert.deepEqual(retrySelection(p, results).map((x) => x.selected), [true, true]);
 });
 
@@ -222,4 +222,19 @@ test("started texts are compared as instants", () => {
   assert.equal(sameInstant("2026-11-04T09:20:00.000+0100", "2026-11-04T09:20:00+01:00"), true);
   assert.equal(sameInstant("2026-11-04T09:20:00.000+0100", "2026-11-04T09:21:00.000+0100"), false);
   assert.equal(sameInstant("nope", "nope"), false);
+});
+
+import { applyResults } from "../mods/friday/core/worklogs.js";
+
+test("N of M logged follows the results of a run", async () => {
+  const j = jira();
+  const p = plan([row("A-1", 1, 15), row("B-2", 2, 10), row(null, 3, 5)], [], { "A-1": [], "B-2": [] });
+  assert.deepEqual(loggedCount(p), { logged: 0, of: 2 });
+  j.db["B-2"] = [remoteLog("55")]; // an agent logged it meanwhile
+  const { results } = await run(j, p, []);
+  assert.deepEqual(loggedCount(applyResults(p, results)), { logged: 2, of: 2 });
+  assert.deepEqual(applyResults(p, results).map((x) => x.status), ["friday", "outside", "no_key"]);
+  assert.equal(p[0].status, "ready", "the plan itself is not changed, so a retry can still use it");
+  const failed = [{ pr: 1, key: "A-1", result: "failed" }, { pr: 2, key: "B-2", result: "unknown" }];
+  assert.deepEqual(loggedCount(applyResults(p, failed)), { logged: 0, of: 2 });
 });

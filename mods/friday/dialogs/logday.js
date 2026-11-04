@@ -7,7 +7,7 @@ import { LEDGER } from "../hub.js";
 import { readWorklogRecords, saveWorklogRecord } from "../store.js";
 import { jiraSession } from "../jira-session.js";
 import { listWorklogs, postWorklog } from "../core/jira.js";
-import { offsetText, planDay, planText, loggedCount, logDay, summaryText, retrySelection } from "../core/worklogs.js";
+import { applyResults, offsetText, planDay, planText, loggedCount, logDay, summaryText, retrySelection } from "../core/worklogs.js";
 import { dayStart, addDays } from "../core/meetings.js";
 import { offsetNow } from "../net.js";
 import { button, note, stateColor } from "../ui.js";
@@ -78,12 +78,13 @@ export class LogDayDialog {
           now: Date.now(),
           list: (key) => listWorklogs(s.deps, s.cfg, key, { after, before, accountId: s.accountId }),
           post: (key, body) => postWorklog(s.deps, s.cfg, key, body),
-          saveRecord: async (r) => { await saveWorklogRecord(r); this.records.push(r); },
+          saveRecord: async (r) => { this.records.push(r); await saveWorklogRecord(r); }, // in memory first: a failed write must not make a retry forget it
           progress: (done, total) => { this.progress = [done, total]; cx.notify(); },
         });
       } catch {
         this.error = "Logging stopped unexpectedly. Reopen this dialog to see what was logged.";
       }
+      this.counted = applyResults(this.counted ?? this.plan, this.results); // the header count keeps what earlier runs logged
       this.phase = "done";
       cx.notify();
     });
@@ -99,7 +100,7 @@ export class LogDayDialog {
   render() {
     const t = theme();
     const overlay = (props() || {}).overlay;
-    const { logged, of } = loggedCount(this.plan);
+    const { logged, of } = loggedCount(this.counted ?? this.plan);
     const selected = this.plan.filter((p) => p.selected).length;
     const retryable = this.results.some((r) => ["failed", "unknown", "not_tried"].includes(r.result));
     const resultOf = (p) => this.results.find((r) => r.pr === p.pr && r.key === p.key);
@@ -123,7 +124,7 @@ export class LogDayDialog {
         .when(this.phase === "logging", (el) => el.child(note(t, `Logging ${this.progress[0]} of ${this.progress[1]}…`)))
         .when(this.phase === "done", (el) => el.child(note(t, summaryText(this.results), retryable ? "error" : "ok"))))
       .child(h_flex().px(18).py(12).gap(8).justify_end().border_t(1).border_color(t.border)
-        .when(this.phase === "done" && retryable, (el) => el.child(button(t, "ld-retry", "Retry failed (R)", (_e, cx) => this.retry(cx))))
+        .when(this.phase === "done" && retryable, (el) => el.child(button(t, "ld-retry", "Retry failed", (_e, cx) => this.retry(cx))))
         .when(this.phase === "ready" && this.plan.length > 0, (el) => el.child(button(t, "ld-log", `Log selected (${selected})`, (_e, cx) => this.start(cx), true)))
         .child(button(t, "ld-close", this.phase === "done" ? "Close" : "Cancel", () => closeOverlay(overlay))));
   }

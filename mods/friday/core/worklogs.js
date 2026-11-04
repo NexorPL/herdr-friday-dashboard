@@ -270,17 +270,28 @@ export async function logDay(plan, { day, records, offsetMin, now, list, post, s
   return results;
 }
 
-/** "3 logged, 1 failed — R retries the failed one" (D27); only the counts that are not zero. */
+/** "3 logged, 1 failed — use Retry failed" (D27); only the counts that are not zero. */
 export function summaryText(results) {
   const n = (r) => results.filter((x) => x.result === r).length;
   const parts = [[n("logged"), "logged"], [n("skipped"), "skipped"], [n("failed") + n("unknown"), "failed"], [n("not_tried"), "not tried"]].filter(([c]) => c > 0).map(([c, w]) => `${c} ${w}`);
   const retry = n("failed") + n("unknown") + n("not_tried");
   if (!parts.length) return "Nothing to log.";
-  return parts.join(", ") + (retry ? ` — R retries ${retry === 1 ? "the failed one" : "the failed ones"}` : "");
+  return parts.join(", ") + (retry ? " — use Retry failed" : "");
 }
 
 /** The plan rows to select again for a retry: the ones that failed, may have been saved, or were not tried. */
 export function retrySelection(plan, results) {
   const again = new Set(results.filter((r) => ["failed", "unknown", "not_tried"].includes(r.result)).map((r) => r.pr));
   return plan.map((p) => ({ ...p, selected: again.has(p.pr) }));
+}
+
+/** The plan as it stands after a run, for the "N of M logged" count: written and skipped rows are now logged. */
+export function applyResults(plan, results) {
+  return plan.map((p) => {
+    const r = results.find((x) => x.pr === p.pr && x.key === p.key);
+    if (!r) return p;
+    if (r.result === "logged") return { ...p, status: "friday" };
+    if (r.result === "skipped" && p.status !== "no_key" && p.status !== "no_time") return { ...p, status: r.message === "logged by Friday" ? "friday" : "outside" };
+    return p;
+  });
 }
