@@ -22,14 +22,14 @@ The owner's `keys.json` binds a key to `mod.open:friday`. It works through the `
 
 ### `settings.json` (in force since Phase 1, keys added per phase)
 
-`settings.json` lives in the data folder, `${appHome()}/data/friday/`. Phase 1 defines `ledger.path`; Phase 3 adds `calendar.email`, `calendar.interval` (default `10m`), `calendar.alerts` (default `["5m"]`) and `notifications.sound` (`none`, `done` or `blocked`; default `done`); each later phase adds its own, as listed in the spec's Data Model. `mods/friday/core/settings.js` is the one definition of the keys. The file carries `"version": 1`; a Friday that finds a newer version leaves the file alone and names the version it needs.
+`settings.json` lives in the data folder, `${appHome()}/data/friday/`. Phase 1 defines `ledger.path`; Phase 3 adds `calendar.email`, `calendar.interval` (default `10m`), `calendar.alerts` (default `["5m"]`) and `notifications.sound` (`none`, `done` or `blocked`; default `done`); Phase 2 adds `jira.site`, `jira.email`, `jira.token_kind` (`scoped` or `classic`; default `scoped`) and `jira.interval` (default `5m`); each later phase adds its own, as listed in the spec's Data Model. `mods/friday/core/settings.js` is the one definition of the keys. The file carries `"version": 1`; a Friday that finds a newer version leaves the file alone and names the version it needs.
 
 - **Breaking:** removing or renaming a key, changing a key's meaning or default, or rejecting a value that used to be accepted.
 - **Required path:** keep reading the old key for at least one minor release, and say so in Settings; note the migration in the release notes.
 
 ### Secrets file `secrets.json` (in force since Phase 3, entries per phase)
 
-`secrets.json` is in the data folder and holds `jira_token`, `ado_pat` and `ical_url` (R12), each only once its phase ships: Phase 3 ships `ical_url`, the secret iCal address of the calendar. It is plain text, written only by Settings and read only by the code that fetches. A secret never goes into `shared()`, `localStorage`, logs, errors, toasts, fixtures, screenshots or git.
+`secrets.json` is in the data folder and holds `jira_token`, `ado_pat` and `ical_url` (R12), each only once its phase ships: Phase 3 ships `ical_url`, the secret iCal address of the calendar; Phase 2 ships `jira_token`, the Atlassian API token (scopes `read:jira-work` and `write:jira-work`), which can write worklogs. It is plain text, written only by Settings and read only by the code that fetches. A secret never goes into `shared()`, `localStorage`, logs, errors, toasts, fixtures, screenshots or git.
 
 - **Breaking:** renaming an entry, which loses a stored secret.
 - **Required path:** read the old name, write the new one, then drop the old.
@@ -41,18 +41,32 @@ The owner's `keys.json` binds a key to `mod.open:friday`. It works through the `
 - **Breaking:** changing the key format, which makes every alert in the next minute fire a second time.
 - **Required path:** read the old keys until their entries are pruned (7 days), and raise `version`.
 
+### `worklogs.json` (in force since Phase 2)
+
+`{ "version": 1, "worklogs": [{ jira_id, issue_key, day, started, seconds, comment, origin ("ledger" or "favorite"), ledger_pr, created_at }] }`, one record per worklog Friday wrote, once per `jira_id`, written with compare-and-swap. It is the input to R09: losing it makes Friday see its own earlier worklogs as "logged outside Friday", and a row lost before it was recorded can be logged twice.
+
+- **Breaking:** renaming a field, changing what `origin` or `ledger_pr` mean, or dropping the file.
+- **Required path:** read the older shape, raise `version` and migrate forward on read.
+
+### `favorites.md` (in force since Phase 2)
+
+One Jira key per line in the data folder, in the owner's order; other text on a line is kept and ignored. Friday only adds a key, as a line of its own, under R10: no line is ever deleted or rewritten, and CRLF or LF per line, a BOM and a missing final newline are kept (`core/mdfile.js`). `priorities.md` is read only for its Jira keys until Phase 4.
+
+- **Breaking:** a format change that makes existing files unreadable, or that rewrites content Friday did not change.
+- **Required path:** always read the older format, and never reformat a file wholesale.
+
 ## Planned
 
 ### Data-folder files and their `version` (Phase 1 onward)
 
-`settings.json` already follows this (see In force). The other files are `worklogs.json`, `prs.json`, `prices.json` and `tokens.json`, each with `"version"`. `worklogs.json` is the input to R09, so losing it can double-log time in Jira.
+`settings.json` already follows this (see In force). `worklogs.json` is in force too (see above). The other files are `prs.json`, `prices.json` and `tokens.json`, each with `"version"`.
 
 - **Breaking:** a change that loses data or needs the owner to delete a file.
 - **Required path:** raise `version` and migrate the file forward on read. A Friday that finds a newer version leaves the file alone and names the version it needs.
 
-### The owner's `.md` files (Phase 2 onward)
+### The other `.md` files (Phase 4)
 
-These are `todos.md`, `notes.md`, `priorities.md` and `favorites.md` in the data folder.
+These are `todos.md`, `notes.md` and `priorities.md` in the data folder; `favorites.md` is in force (see above).
 
 - **Breaking:** a format change that makes existing files unreadable, or that rewrites content Friday did not change (R10).
 - **Required path:** always read the older format, and never reformat a file wholesale.

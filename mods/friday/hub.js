@@ -4,9 +4,10 @@
 // the result to shared("friday.<source>") and its record to shared("friday.status"); every other
 // copy re-renders from those values. A lost race costs nothing, because only the lease holder reads.
 import { shared, setShared, readTextFile, notify, playSound } from "herdr";
-import { loadSettings, resolvePath, readSecret, readAlertsSent, claimAlerts } from "./store.js";
+import { loadSettings, resolvePath, readSecret, readDataText, readAlertsSent, claimAlerts } from "./store.js";
 import { dueAlerts, alertText } from "./core/alerts.js";
-import { runCalendar, offsetNow } from "./net.js";
+import { runCalendar, runJira, offsetNow } from "./net.js";
+import { keySet, jiraKeys } from "./core/jira.js";
 import { localDay } from "./core/meetings.js";
 import { parseInterval, parseDurations } from "./core/durations.js";
 import { loadLedger, parseLedger, newestDays } from "./core/ledger.js";
@@ -19,6 +20,8 @@ export const STATUS = "friday.status";
 export const LEDGER = "friday.ledger";
 /** { data: { meetings, day, note }, for, ok_at }: today and tomorrow; no secret is ever in it. */
 export const MEETINGS = "friday.meetings";
+/** { data: { issues, missing, cloud_id, account_id, favorites, priorities }, for, ok_at }: no token or other secret is ever in it. */
+export const JIRA = "friday.jira";
 /** Settings bumps this after a save, so every copy rereads settings.json within a second. */
 export const SETTINGS_REV = "friday.settings_rev";
 
@@ -44,6 +47,10 @@ function hash(text) {
 export function sourceKey(source, values) {
   if (source === "ledger") return resolvePath(values.ledger.path);
   if (source === "calendar") return `calendar:${values.calendar.email ?? ""}`;
+  if (source === "jira") {
+    const j = values.jira;
+    return `jira:${j.site ?? ""}|${j.email ?? ""}|${j.token_kind}`;
+  }
   return source;
 }
 
@@ -98,9 +105,10 @@ export class Hub {
     });
   }
 
-  /** Seconds between fetches: calendar.interval for the calendar, a fixed one for the rest. */
+  /** Seconds between fetches: the interval setting for the calendar and Jira, a fixed one for the rest. */
   interval(source) {
-    return source === "calendar" ? (parseInterval(this.settings.values.calendar.interval) ?? SOURCES.calendar.interval) : SOURCES[source].interval;
+    const setting = source === "calendar" || source === "jira" ? this.settings.values[source].interval : null;
+    return (setting && parseInterval(setting)) || SOURCES[source].interval;
   }
 
   key(source) {
@@ -156,6 +164,7 @@ export class Hub {
       }
     }
     if (source === "calendar") next = await this.fetchCalendar(cx, prev, key, interval, now);
+    if (source === "jira") next = await this.fetchJira(cx, prev, key, interval, now);
     if (shouldWrite(prev, next) || prev?.for !== key) setShared(STATUS, { ...(shared(STATUS) ?? {}), [source]: next });
   }
 
@@ -200,6 +209,26 @@ export class Hub {
     return { ...succeeded(now), for: key };
   }
 
+  /** The token is read here, used for one fetch and dropped; only issues go to shared(). */
+  async fetchJira(cx, prev, key, interval, now) {
+    const j = this.settings.values.jira;
+    const token = await readSecret("jira_token");
+    if (!token || !j.site || !j.email) {
+      if (shared(JIRA)) setShared(JIRA, null);
+      return { ...succeeded(now), ok_at: null, not_set_up: true, for: key };
+    }
+    const fav = await readDataText("favorites.md");
+    const pri = await readDataText("priorities.md");
+    const old = shared(JIRA);
+    const kept = old?.for === key ? old.data : {};
+    const r = await runJira(cx, { site: j.site, email: j.email, kind: j.token_kind, token }, { keys: keySet(fav, pri), cloudId: kept.cloud_id ?? null, accountId: kept.account_id ?? null });
+    if (!r.ok) return { ...failed(prev, now, interval, { status: r.status ?? null, message: r.message }), for: key };
+    // The widgets need to know which keys are favorites and which are priorities, in file order.
+    const data = { ...r.value, favorites: jiraKeys(fav).slice(0, 200), priorities: jiraKeys(pri).slice(0, 200) };
+    if (!old || old.for !== key || JSON.stringify(old.data) !== JSON.stringify(data)) setShared(JIRA, { data, for: key, ok_at: now });
+    return { ...succeeded(now), for: key };
+  }
+
   /** ↻: make the sources due now; the lease holder reads them within a few seconds. */
   refresh(cx) {
     const status = { ...(shared(STATUS) ?? {}) };
@@ -222,6 +251,12 @@ export class Hub {
   meetings() {
     const m = shared(MEETINGS);
     return m && m.for === this.key("calendar") && !this.status().calendar?.not_set_up ? m : null;
+  }
+
+  /** Jira issues as shared, only while they belong to the configured site and e-mail. */
+  jira() {
+    const m = shared(JIRA);
+    return m && m.for === this.key("jira") && !this.status().jira?.not_set_up ? m : null;
   }
 
   /** loading, ok, stale, error or not_set_up for a source. */

@@ -143,20 +143,22 @@ test("the opener gets the target as one argument, never through a shell", () => 
 });
 
 test("widget ids are the contract saved in the owner's tabs", () => {
-  assert.deepEqual(WIDGETS.map((w) => w.id), ["summary", "ledger", "meetings"]);
+  assert.deepEqual(WIDGETS.map((w) => w.id), ["summary", "ledger", "meetings", "jira", "favorites"]);
   assert.equal(widgetById("nope"), null);
-  assert.deepEqual(sourcesFor(["summary", "ledger", "ledger"]), ["ledger", "calendar"]);
+  assert.deepEqual(sourcesFor(["summary", "ledger", "ledger"]), ["ledger", "calendar", "jira"]);
   assert.deepEqual(sourcesFor(["ledger"]), ["ledger"]);
-  assert.deepEqual(DEFAULT_SPLITS, [["ledger", "down"], ["meetings", "right"]]);
+  assert.deepEqual(DEFAULT_SPLITS, [["ledger", "down"], ["meetings", "right"], ["jira", "down"]]);
   for (const [widget] of DEFAULT_SPLITS) assert.ok(widgetById(widget));
   for (const w of WIDGETS) for (const source of w.sources) assert.ok(SOURCES[source], w.id);
 });
 
 test("the setup checklist lists only built sources", () => {
   const rows = checklist({ status: undefined, now: T });
-  assert.deepEqual(rows.map((r) => [r.id, r.state, r.section]), [["ledger", "todo", "ledger"], ["calendar", "todo", "calendar"]]);
+  assert.deepEqual(rows.map((r) => [r.id, r.state, r.section]), [["ledger", "todo", "ledger"], ["calendar", "todo", "calendar"], ["jira", "todo", "jira"]]);
   const none = checklist({ status: { calendar: { ...succeeded(T), ok_at: null, not_set_up: true } }, now: T })[1];
   assert.deepEqual([none.state, none.detail], ["todo", "needs the iCal address"]);
+  assert.deepEqual(checklist({ status: { jira: { ...succeeded(T), ok_at: null, not_set_up: true } }, now: T })[2].detail, "needs the site, e-mail and token");
+  assert.equal(checklist({ status: { jira: succeeded(T) }, now: T })[2].state, "ok");
   assert.equal(checklist({ status: { calendar: succeeded(T) }, now: T })[1].state, "ok");
   assert.equal(checklist({ status: { ledger: succeeded(T) }, now: T })[0].state, "ok");
   const bad = checklist({ status: { ledger: failed(null, T, 15, { message: "ledger not found at x.md" }) }, now: T })[0];
@@ -180,6 +182,7 @@ test("the first pane arranges the default panes only when it is alone in its tab
   assert.deepEqual(planArrangement(alone, DEFAULT_SPLITS), [
     { pane: "p1", direction: "down", mod: "friday", props: { widget: "ledger" } },
     { pane: "p1", direction: "right", mod: "friday", props: { widget: "meetings" } },
+    { pane: "p1", direction: "down", mod: "friday", props: { widget: "jira" } },
   ]);
   assert.deepEqual(planArrangement([...alone, { pane: "p2", mod: "friday", tab: "t1" }], DEFAULT_SPLITS), [], "an arranged tab is left alone");
   assert.deepEqual(planArrangement([], DEFAULT_SPLITS), []);

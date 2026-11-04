@@ -6,11 +6,16 @@ import * as fs from "fs/promises";
 import { parseJson, updateJson } from "./core/datafile.js";
 import { claimAlerts as claimInto } from "./core/alerts.js";
 import { secretFrom, withSecret } from "./core/secrets.js";
+import { addRecord, recordsOf } from "./core/worklogs.js";
+import { addFavorite } from "./core/favorites.js";
+import { isMissingError } from "./core/mdfile.js";
 import { resolveSettings, setKey, expandHome } from "./core/settings.js";
 
 export const SETTINGS_FILE = "settings.json";
 export const SECRETS_FILE = "secrets.json";
 export const ALERTS_FILE = "alerts.json";
+export const WORKLOGS_FILE = "worklogs.json";
+export const FAVORITES_FILE = "favorites.md";
 
 export const dataDir = () => `${appHome()}/data/friday`;
 export const dataPath = (name) => `${dataDir()}/${name}`;
@@ -78,6 +83,43 @@ export async function readSecret(name) {
 export async function saveSecret(name, value) {
   await ensureDataDir();
   await updateJson(io, dataPath(SECRETS_FILE), (raw) => withSecret(raw, name, value));
+}
+
+/** A text file of the data folder (favorites.md, priorities.md), or null when it does not exist. */
+export async function readDataText(name) {
+  try {
+    return await readTextFile(dataPath(name));
+  } catch {
+    return null;
+  }
+}
+
+/** The records in worklogs.json (what Friday wrote to Jira); none when the file is missing or unreadable. */
+export async function readWorklogRecords() {
+  try {
+    return recordsOf(parseJson(await readTextFile(dataPath(WORKLOGS_FILE))));
+  } catch {
+    return [];
+  }
+}
+
+/** Appends one record to worklogs.json (compare-and-swap, once per Jira id). Throws if it cannot. */
+export async function saveWorklogRecord(record) {
+  await ensureDataDir();
+  await updateJson(io, dataPath(WORKLOGS_FILE), (raw) => addRecord(raw, record));
+}
+
+/** favorites.md as a file of the R10 writer: a missing file reads as null and is created by the first add. */
+const mdIo = {
+  // null (a missing file) lets the first add create it; any other error is a failed read, never an empty file.
+  read: (path) => readTextFile(path).catch((e) => (isMissingError(e) ? null : Promise.reject(e))),
+  write: (path, text, expected) => writeTextFile(path, text, expected).then(() => undefined),
+};
+
+/** Adds a key to favorites.md. { ok, changed } or { ok: false, message }. */
+export async function addToFavorites(key) {
+  await ensureDataDir();
+  return addFavorite(mdIo, dataPath(FAVORITES_FILE), key);
 }
 
 /** The `sent` map of alerts.json (empty when the file is missing or unreadable). */
