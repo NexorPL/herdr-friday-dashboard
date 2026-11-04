@@ -196,10 +196,12 @@ export function loggedCount(plan) {
 }
 
 /**
- * Writes the selected rows one after another. Before each POST that was not selected on purpose
- * (a `friday` or `outside` row is deliberate), the owner's worklogs on the task are read again and R09
- * is applied to the fresh answer, so a worklog that Jira saved but whose answer was lost (a timeout)
- * shows up as "logged outside Friday" and is skipped: the same call is never sent blindly twice.
+ * Writes the selected rows one after another. Before each POST the owner's worklogs on the task are read
+ * again, for every row. A row not selected on purpose gets R09 applied to the fresh answer;
+ * a worklog that Jira saved but whose answer was lost (a timeout) shows up as "logged outside Friday" and
+ * is skipped. A deliberate row (a `friday` or `outside` one) is written unless that answer holds a worklog with
+ * the same start and `Code review PR !N` comment, which is adopted as its own (found in Jira) and recorded:
+ * the same call is never sent blindly twice.
  * The record is written right after each POST, so a second row on the same task is not mistaken for
  * an outside worklog. A token rejected by Jira (401/403) stops the run.
  *
@@ -279,9 +281,12 @@ export function summaryText(results) {
   return parts.join(", ") + (retry ? " — use Retry failed" : "");
 }
 
-/** The plan rows to select again for a retry: the ones that failed, may have been saved, or were not tried. */
+/**
+ * The plan rows to select again for a retry: the ones that failed or were not tried. A row whose POST
+ * may have been saved (`unknown`) stays unselected: the owner checks the issue and ticks it on purpose.
+ */
 export function retrySelection(plan, results) {
-  const again = new Set(results.filter((r) => ["failed", "unknown", "not_tried"].includes(r.result)).map((r) => r.pr));
+  const again = new Set(results.filter((r) => ["failed", "not_tried"].includes(r.result)).map((r) => r.pr));
   return plan.map((p) => ({ ...p, selected: again.has(p.pr) }));
 }
 
@@ -291,7 +296,7 @@ export function applyResults(plan, results) {
     const r = results.find((x) => x.pr === p.pr && x.key === p.key);
     if (!r) return p;
     if (r.result === "logged") return { ...p, status: "friday" };
-    if (r.result === "skipped" && p.status !== "no_key" && p.status !== "no_time") return { ...p, status: r.message === "logged by Friday" ? "friday" : "outside" };
+    if (r.result === "skipped" && p.status !== "no_key" && p.status !== "no_time") return { ...p, status: r.message === BY_FRIDAY ? "friday" : "outside" };
     return p;
   });
 }

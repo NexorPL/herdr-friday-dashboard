@@ -110,7 +110,7 @@ test("timeout after Jira saved the worklog: the retry finds it, marks it outside
   assert.deepEqual(first.results.map((r) => [r.result, r.message]), [["unknown", MAYBE_SAVED]]);
   assert.equal(records.length, 0, "no record without a Jira id");
   assert.equal(summaryText(first.results), "1 failed — use Retry failed");
-  const second = await run(j, retrySelection(p, first.results), records);
+  const second = await run(j, ticked(p, first.results), records);
   assert.deepEqual(second.results.map((r) => [r.result, r.message]), [["skipped", "logged outside Friday"]]);
   assert.equal(j.calls.post.length, 1, "the POST is never sent twice");
   assert.equal(j.db["A-1"].length, 1);
@@ -144,7 +144,7 @@ test("deliberate row, POST times out after Jira saved it: the retry adopts the s
   p[0].selected = true;
   const first = await run(j, p, records);
   assert.deepEqual(first.results.map((r) => r.result), ["unknown"]);
-  const second = await run(j, retrySelection(p, first.results), records);
+  const second = await run(j, ticked(p, first.results), records);
   assert.deepEqual(second.results.map((r) => [r.result, r.message]), [["logged", "found in Jira"]]);
   assert.equal(j.calls.post.length, 1, "no second POST");
   assert.equal(records.length, 1);
@@ -163,7 +163,7 @@ test("deliberate row, retry where Jira did not save it: it is posted", async () 
   p[0].selected = true;
   const first = await run(j, p, records);
   assert.deepEqual(first.results.map((r) => r.result), ["unknown"]);
-  const second = await run(j, retrySelection(p, first.results), records);
+  const second = await run(j, ticked(p, first.results), records);
   assert.deepEqual(second.results.map((r) => r.result), ["logged"]);
   assert.equal(j.calls.post.length, 2);
 });
@@ -237,4 +237,19 @@ test("N of M logged follows the results of a run", async () => {
   assert.equal(p[0].status, "ready", "the plan itself is not changed, so a retry can still use it");
   const failed = [{ pr: 1, key: "A-1", result: "failed" }, { pr: 2, key: "B-2", result: "unknown" }];
   assert.deepEqual(loggedCount(applyResults(p, failed)), { logged: 0, of: 2 });
+});
+
+/** A retry after the owner has checked the issue and ticked the maybe-saved rows. */
+function ticked(p, results) {
+  return retrySelection(p, results).map((x) => ({ ...x, selected: x.selected || results.some((r) => r.pr === x.pr && r.result === "unknown") }));
+}
+
+test("a retry leaves a maybe-saved row unselected until the owner ticks it", async () => {
+  const j = jira({ postFail: { 1: "lost" } });
+  const p = plan([row("A-1", 1, 5), row("B-2", 2, 5)], [], { "A-1": [], "B-2": [] });
+  const first = await run(j, p, []);
+  assert.deepEqual(first.results.map((r) => r.result), ["unknown", "logged"]);
+  assert.deepEqual(retrySelection(p, first.results).map((x) => x.selected), [false, false]);
+  const failedToo = [{ pr: 1, key: "A-1", result: "unknown" }, { pr: 2, key: "B-2", result: "failed" }];
+  assert.deepEqual(retrySelection(p, failedToo).map((x) => x.selected), [false, true]);
 });
