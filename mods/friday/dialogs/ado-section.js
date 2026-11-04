@@ -21,6 +21,7 @@ export class AdoState {
     this.message = null;
     this.testing = null; // the running Test, so a second click waits for it
     this.groups = null; // [{ project, repos: [{ id, name }] }] after a Test
+    this.groupsOrg = null; // the organization the picker's groups came from
     this.open = null; // the project whose repos the picker shows
     this.project = null; // the chosen project and repo (saved with Save)
     this.repo = null;
@@ -63,6 +64,14 @@ function savePatSecret(st, cx, remove) {
 function saveOptions(dialog, st, cx) {
   const typed = st.organization.value().trim();
   if (typed && !orgName(typed)) return say(st, cx, "ado: the organization is a name such as your-org", "error", "options");
+  // A repo of another organization is not a choice for this one: drop it unless the picker was loaded for it.
+  const org = orgName(typed);
+  if (org !== (dialog.settings.values.azure_devops.organization ?? null) && org !== st.groupsOrg) {
+    st.project = null;
+    st.repo = null;
+    st.groups = null;
+    st.open = null;
+  }
   cx.spawn(async (cx) => {
     try {
       await saveSettings([
@@ -108,6 +117,7 @@ function test(st, cx) {
         loaded: (groups) => {
           if (st.testing !== run) return;
           st.groups = groups;
+          st.groupsOrg = orgName(cfg.organization);
           if (!groups.some((g) => g.project === st.open)) st.open = groups[0]?.project ?? null;
         },
         say: (text, state) => st.testing === run && say(st, cx, text, state),

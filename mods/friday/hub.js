@@ -257,9 +257,10 @@ export class Hub {
     if (!r.ok) return { ...failed(prev, now, interval, { status: r.status ?? null, message: r.message }), for: key };
     let rec;
     try {
-      rec = await recordPrs(repoKey(a.project, a.repo), r.value.prs, now);
-    } catch {
-      return { ...failed(prev, now, interval, { message: "ado: could not update prs.json" }), for: key };
+      rec = await recordPrs(repoKey(a.organization, a.project, a.repo), r.value.prs, now);
+    } catch (e) {
+      const newer = Number.isInteger(e?.version) ? `ado: prs.json is version ${e.version}; this Friday reads version 1` : "ado: could not update prs.json";
+      return { ...failed(prev, now, interval, { message: newer }), for: key };
     }
     const old = shared(PRS);
     const data = { prs: rec.rows.slice(0, 100) };
@@ -276,7 +277,7 @@ export class Hub {
     const a = this.settings.values.azure_devops;
     cx.spawn(async (cx) => {
       try {
-        const rows = await markPrsSeen(repoKey(a.project, a.repo), id);
+        const rows = await markPrsSeen(repoKey(a.organization, a.project, a.repo), id);
         const cur = shared(PRS);
         if (cur && cur.for === key) setShared(PRS, { ...cur, data: { prs: rows.slice(0, 100) } });
       } catch {

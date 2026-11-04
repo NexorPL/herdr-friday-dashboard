@@ -85,7 +85,8 @@ async function get({ fetch, withTimeout }, url, pat) {
     return fail(undefined, networkError("ado", e, { timeoutMs: FETCH_TIMEOUT_MS }));
   }
   // A bad PAT can also get a 203 with the sign-in page instead of a 401.
-  if (res.status === 203 || rejectsToken(res.status)) return fail(res.status, "ado: PAT rejected");
+  if (res.status === 203) return fail(401, "ado: PAT rejected"); // marked rejected: no retry until the PAT changes
+  if (rejectsToken(res.status)) return fail(res.status, "ado: PAT rejected");
   if (!res.ok) return fail(res.status, res.status === 404 ? "ado: not found (check the organization, project and repo)" : httpError("ado", res.status));
   try {
     return { ok: true, json: JSON.parse(await withTimeout(res.text(), FETCH_TIMEOUT_MS)) };

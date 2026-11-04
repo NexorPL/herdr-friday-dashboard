@@ -156,3 +156,12 @@ test("the PR widget reads the ado source, every PR link passes the https filter,
   const [pr] = parsePrs({ value: [{ pullRequestId: 7, title: "t" }] }, { organization: "o", project: "P Q", repo: "r" });
   assert.equal(httpsLink(pr.url), pr.url);
 });
+
+test("a 203 sign-in page is a rejected PAT (status 401), so the source stops retrying", async () => {
+  for (const fn of [listRepos, fetchPrs]) {
+    const r = await fn(deps(fakeFetch({ ok: true, status: 203, text: async () => "<html>sign in</html>" })), CFG);
+    assert.deepEqual([r.ok, r.status, r.message], [false, 401, "ado: PAT rejected"]);
+  }
+  const { failed } = await import("../mods/friday/core/due.js");
+  assert.equal(failed(null, 1, 120, { status: 401, message: "x" }).rejected, true);
+});

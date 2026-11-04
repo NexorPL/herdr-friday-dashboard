@@ -10,12 +10,23 @@ export const KEEP_INACTIVE_MS = 30 * 24 * 3_600_000;
 
 const isObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
 
-export const repoKey = (project, repo) => `${project}/${repo}`;
+export const repoKey = (organization, project, repo) => `${organization}/${project}/${repo}`;
 
 const repoOf = (raw, key) => {
   const r = isObject(raw?.repos) ? raw.repos[key] : null;
   return { baseline_set: r?.baseline_set === true, prs: isObject(r?.prs) ? r.prs : {} };
 };
+
+/** Active rows as they are; inactive ones slimmed to what a comeback needs, and dropped after 30 days. */
+function pruneInactive(prs, now) {
+  const out = {};
+  for (const [id, p] of Object.entries(isObject(prs) ? prs : {})) {
+    if (!isObject(p)) continue;
+    if (p.active) out[id] = p;
+    else if (now - (p.last_seen_at ?? 0) <= KEEP_INACTIVE_MS) out[id] = { active: false, is_draft: p.is_draft === true, notified: p.notified === true, last_seen_at: p.last_seen_at ?? 0 };
+  }
+  return out;
+}
 
 /**
  * Applies a successful fetch of one repo's active PRs. Returns { next, owed }: `next` is the file
@@ -25,28 +36,33 @@ const repoOf = (raw, key) => {
 export function applyFetch(raw, key, fetched, now) {
   const repo = repoOf(raw, key);
   const prs = {};
+  const rowOf = (id) => (isObject(repo.prs[id]) ? repo.prs[id] : undefined); // a damaged row counts as absent
   const owed = [];
   const seenNow = new Set();
   for (const p of fetched) {
     const id = String(p.id);
     seenNow.add(id);
-    const old = repo.prs[id];
+    const old = rowOf(id);
     const fields = { title: p.title, author: p.author, created_at: p.created_at, is_draft: p.is_draft, url: p.url, last_seen_at: now, active: true };
     if (!repo.baseline_set) prs[id] = { ...fields, first_seen_at: now, unseen: false, notified: true };
     else if (!old) prs[id] = { ...fields, first_seen_at: now, unseen: true, notified: false };
-    else if (old.is_draft && !p.is_draft) prs[id] = { ...old, ...fields, unseen: true, notified: false };
-    else prs[id] = { ...old, ...fields };
+    else if (old.is_draft && !p.is_draft) prs[id] = { ...old, ...fields, first_seen_at: old.first_seen_at ?? now, unseen: true, notified: false };
+    else prs[id] = { ...old, ...fields, first_seen_at: old.first_seen_at ?? now, unseen: old.unseen === true };
     if (!prs[id].is_draft && !prs[id].notified) {
       prs[id].notified = true;
       owed.push({ id: p.id, title: p.title, author: p.author, url: p.url });
     }
   }
   for (const [id, old] of Object.entries(repo.prs)) {
-    if (seenNow.has(id)) continue;
-    if (!old.active && now - (old.last_seen_at ?? 0) > KEEP_INACTIVE_MS) continue; // pruned
-    prs[id] = { ...old, active: false };
+    if (seenNow.has(id) || !isObject(old)) continue;
+    prs[id] = old.active ? { ...old, active: false } : old;
   }
-  const repos = { ...(isObject(raw?.repos) ? raw.repos : {}), [key]: { baseline_set: true, prs } };
+  // Inactive rows keep only what a comeback needs, and are dropped after 30 days, in every repo.
+  const repos = {};
+  for (const [k, r] of Object.entries(isObject(raw?.repos) ? raw.repos : {})) {
+    if (k !== key && isObject(r)) repos[k] = { ...r, prs: pruneInactive(r.prs, now) };
+  }
+  repos[key] = { baseline_set: true, prs: pruneInactive(prs, now) };
   return { next: { version: 1, repos }, owed };
 }
 

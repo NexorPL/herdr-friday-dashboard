@@ -57,9 +57,9 @@ One Jira key per line in the data folder, in the owner's order; other text on a 
 
 ### `prs.json` (in force since Phase 4)
 
-`{ "version": 1, "repos": { "<project>/<repo>": { "baseline_set": bool, "prs": { "<id>": { title, author, created_at, is_draft, url, first_seen_at, last_seen_at, active, unseen, notified } } } } }`, written with compare-and-swap. It is why a new PR gets one toast (R11) and why the first fetch of a repo is a silent baseline, also across restarts. `notified` means no toast is owed (true for the baseline); a draft waits unnotified until it is ready. Inactive rows are kept 30 days so a PR that comes back is not new again.
+`{ "version": 1, "repos": { "<organization>/<project>/<repo>": { "baseline_set": bool, "prs": { "<id>": { title, author, created_at, is_draft, url, first_seen_at, last_seen_at, active, unseen, notified } } } } }`, written with compare-and-swap. It is why a new PR gets one toast (R11) and why the first fetch of a repo is a silent baseline, also across restarts. `notified` means no toast is owed (true for the baseline); a draft waits unnotified until it is ready. Inactive rows keep only `active`, `is_draft`, `notified` and `last_seen_at`, for 30 days, so a PR that comes back is not new again.
 
-- **Breaking:** renaming a field or the repo key, or changing what `notified` or `unseen` mean, which makes every open PR toast again or hides new ones.
+- **Breaking:** renaming a field, changing what `notified` or `unseen` mean (which makes open PRs toast again or hides new ones), or changing the repo key shape (a new key starts a silent baseline, so the owner misses the PRs that arrived in between).
 - **Required path:** read the older shape, raise `version` and migrate forward on read.
 
 ## Planned

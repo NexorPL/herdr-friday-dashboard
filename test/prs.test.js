@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { applyFetch, markSeen, rowsFor, prToast, repoKey, KEEP_INACTIVE_MS } from "../mods/friday/core/prs.js";
 import { updateJson } from "../mods/friday/core/datafile.js";
 
-const K = repoKey("P", "r");
+const K = repoKey("o", "P", "r");
 const pr = (id, extra = {}) => ({ id, title: `PR ${id}`, author: "Ann", created_at: "", is_draft: false, url: `https://x.test/${id}`, ...extra });
 const T = 1_000_000;
 const DAY = 24 * 3_600_000;
@@ -64,7 +64,7 @@ test("inactive rows older than 30 days are pruned, active and younger ones are n
 
 test("each repo has its own baseline and other repos are kept", () => {
   const a = applyFetch(null, K, [pr(1)], T).next;
-  const other = repoKey("P", "other");
+  const other = repoKey("o", "P", "other");
   const b = applyFetch(a, other, [pr(9)], T + 1);
   assert.deepEqual(b.owed, [], "another repo starts with its own baseline");
   assert.deepEqual(rowsFor(b.next, K).map((r) => r.id), [1]);
@@ -112,4 +112,36 @@ test("R11: a new PR gets one toast, also across a restart and between racing cop
   // a restart: nothing but prs.json is left
   assert.deepEqual(await poll(memIo({ ...files }), [pr(1), pr(2)], T + DAY), []);
   assert.deepEqual((await poll(io, [pr(1), pr(2), pr(3)], T + 3)).map((o) => o.id), [3]);
+});
+
+test("an organization switch re-baselines silently: the key includes the organization", () => {
+  const a = applyFetch(null, repoKey("org1", "P", "r"), [pr(1)], T).next;
+  const b = applyFetch(a, repoKey("org2", "P", "r"), [pr(1), pr(2)], T + 1);
+  assert.deepEqual(b.owed, [], "no toast on the new organization's first fetch");
+  assert.deepEqual(rowsFor(b.next, repoKey("org2", "P", "r")).map((r) => r.unseen), [false, false]);
+  assert.deepEqual(rowsFor(b.next, repoKey("org1", "P", "r")).map((r) => r.id), [1], "the old organization is kept");
+});
+
+test("a damaged row in prs.json counts as absent", () => {
+  const raw = { version: 1, repos: { [K]: { baseline_set: true, prs: { 1: "junk", 2: null, 3: 5 } } } };
+  const r = applyFetch(raw, K, [pr(1), pr(9)], T);
+  assert.deepEqual(r.owed.map((o) => o.id).sort(), [1, 9], "a damaged row is a new PR");
+  assert.deepEqual(Object.keys(r.next.repos[K].prs).sort(), ["1", "9"], "damaged rows not in the fetch are dropped");
+});
+
+test("inactive rows keep four fields and are pruned in every repo", () => {
+  const other = repoKey("o", "P", "other");
+  const row = { title: "t", author: "a", url: "u", created_at: "c", first_seen_at: 1, unseen: true, is_draft: true, notified: true, active: false };
+  const raw = { version: 1, repos: {
+    [K]: { baseline_set: true, prs: { 1: { ...row, last_seen_at: T }, 2: { ...row, last_seen_at: T - KEEP_INACTIVE_MS - 5 } } },
+    [other]: { baseline_set: true, prs: { 7: { ...row, last_seen_at: T - KEEP_INACTIVE_MS - 5 }, 8: { ...row, last_seen_at: T - 10 } } },
+  } };
+  const n = applyFetch(raw, K, [], T).next;
+  assert.deepEqual(n.repos[K].prs, { 1: { active: false, is_draft: true, notified: true, last_seen_at: T } });
+  assert.deepEqual(Object.keys(n.repos[other].prs), ["8"], "another repo is pruned too");
+  assert.equal(n.repos[other].baseline_set, true);
+  // a comeback of a slimmed row is not new and not unseen
+  const back = applyFetch(n, K, [pr(1, { is_draft: true })], T + 1);
+  assert.deepEqual(back.owed, []);
+  assert.deepEqual(rowsFor(back.next, K).map((r) => [r.id, r.unseen, r.title]), [[1, false, "PR 1"]]);
 });
