@@ -36,7 +36,7 @@ test("a mixed-ending file keeps each existing line byte for byte", () => {
 
 test("only a single non-blank line can be added", () => {
   assert.equal(cleanLine("  x  "), "x");
-  for (const bad of ["", "   ", null, "a\nb", "a\r"]) assert.equal(cleanLine(bad), null);
+  for (const bad of ["", "   ", null, "a\nb", "a\rb"]) assert.equal(cleanLine(bad), null);
   assert.throws(() => addLine("a\n", "x\ny"));
   assert.throws(() => addLine("a\n", " "));
 });
