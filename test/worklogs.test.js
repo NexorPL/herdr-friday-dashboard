@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateLogTime, startedText, durationText, worklogRecord, addRecord, recordsOf } from "../mods/friday/core/worklogs.js";
+import { validateLogTime, offsetText, startedText, durationText, worklogRecord, addRecord, recordsOf } from "../mods/friday/core/worklogs.js";
 import { favoriteKeys, typedKey, favoriteRows, addFavorite } from "../mods/friday/core/favorites.js";
 import { adfComment, postWorklog, listWorklogs, commentText } from "../mods/friday/core/jira.js";
 
@@ -26,7 +26,7 @@ test("today's worklog ends now and the label shows the span", () => {
   assert.equal(r.ok, true);
   assert.equal(r.day, "2026-11-04");
   assert.equal(r.started, "2026-11-04T12:35:00.000+0100");
-  assert.equal(r.label, "Log 1h 30m on ABC-1, 2026-11-04 12:35–14:05");
+  assert.equal(r.label, "Log 1h 30m on ABC-1, 2026-11-04 12:35–14:05 (UTC+01:00)");
 });
 
 test("today's worklog never starts before midnight; another day starts at 09:00", () => {
@@ -34,13 +34,20 @@ test("today's worklog never starts before midnight; another day starts at 09:00"
   assert.equal(early.started, "2026-11-04T00:00:00.000+0100");
   const past = form({ date: "2026-11-02", duration: "45m" });
   assert.equal(past.started, "2026-11-02T09:00:00.000+0100");
-  assert.equal(past.label, "Log 45m on ABC-1, 2026-11-02 09:00–09:45");
+  assert.equal(past.label, "Log 45m on ABC-1, 2026-11-02 09:00–09:45 (UTC+01:00)");
 });
 
 test("the date must be a real day, not in the future", () => {
   for (const d of ["2026-13-01", "yesterday", "2026-02-30", "04.11.2026"]) assert.equal(form({ date: d }).ok, false, d);
   assert.match(form({ date: "2026-11-05" }).error, /future/);
   assert.equal(form({ date: "2026-11-04" }).ok, true);
+});
+
+test("the offset is written out so a wrong DST hour is visible", () => {
+  assert.equal(offsetText(60), "UTC+01:00");
+  assert.equal(offsetText(0), "UTC+00:00");
+  assert.equal(offsetText(-330), "UTC-05:30");
+  assert.equal(offsetText(120), "UTC+02:00");
 });
 
 test("started text, with negative and half-hour offsets", () => {

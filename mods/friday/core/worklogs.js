@@ -24,6 +24,12 @@ export function startedText(ms, offsetMin) {
   return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}T${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}:${pad(t.getUTCSeconds())}.${String(t.getUTCMilliseconds()).padStart(3, "0")}${sign}${pad(Math.floor(abs / 60))}${pad(abs % 60)}`;
 }
 
+/** `UTC+01:00`: the zone a start time is written in, shown so a wrong hour cannot hide. */
+export function offsetText(offsetMin) {
+  const abs = Math.abs(offsetMin);
+  return `UTC${offsetMin < 0 ? "-" : "+"}${pad(Math.floor(abs / 60))}:${pad(abs % 60)}`;
+}
+
 /** Worklogs on a day other than today start here (local); today's end now. */
 export const DEFAULT_START = "09:00";
 
@@ -54,7 +60,10 @@ export function validateLogTime({ duration, date, comment }, { key, now, offsetM
     started: startedText(startMs, offsetMin),
     startMs,
     comment: String(comment ?? "").trim(),
-    label: `Log ${durationText(secs)} on ${key}, ${day} ${clock(startMs, offsetMin)}–${clock(endMs, offsetMin)}`,
+    // ponytail: one offset for every day, the one in force now (herdr-app's Date has no other, spike
+    // note q5), so a day across a DST change can be an hour off. The offset is shown so the owner
+    // sees it; a per-day offset needs a time-zone table, add when the hour is ever wrong in practice.
+    label: `Log ${durationText(secs)} on ${key}, ${day} ${clock(startMs, offsetMin)}–${clock(endMs, offsetMin)} (${offsetText(offsetMin)})`,
   };
 }
 

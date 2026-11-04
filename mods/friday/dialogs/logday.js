@@ -7,7 +7,7 @@ import { LEDGER } from "../hub.js";
 import { readWorklogRecords, saveWorklogRecord } from "../store.js";
 import { jiraSession } from "../jira-session.js";
 import { listWorklogs, postWorklog } from "../core/jira.js";
-import { planDay, planText, loggedCount, logDay, summaryText, retrySelection } from "../core/worklogs.js";
+import { offsetText, planDay, planText, loggedCount, logDay, summaryText, retrySelection } from "../core/worklogs.js";
 import { dayStart, addDays } from "../core/meetings.js";
 import { offsetNow } from "../net.js";
 import { button, note, stateColor } from "../ui.js";
@@ -108,6 +108,7 @@ export class LogDayDialog {
         .child(div().flex_1().text_size(15).font_semibold().child(`Log ${this.day} to Jira`))
         .child(div().text_size(11).text_color(t.dim).child(this.phase === "loading" ? "" : `${logged} of ${of} logged`)))
       .child(v_flex().flex_1().min_h(0).overflow_y_scrollbar().px(18).pb(8).gap(4)
+        .when(this.phase !== "loading" && this.plan.length > 0, (el) => el.child(note(t, `Start times are written in ${offsetText(offsetNow())}, this computer's offset now.`)))
         .when(this.phase === "loading", (el) => el.child(note(t, "Checking Jira for worklogs already logged…")))
         .when(Boolean(this.error), (el) => el.child(note(t, this.error, "error")))
         .when(this.phase !== "loading" && this.plan.length === 0, (el) => el.child(note(t, "No ledger rows for this day.")))
