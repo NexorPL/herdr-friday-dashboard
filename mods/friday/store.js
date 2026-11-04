@@ -9,7 +9,8 @@ import { secretFrom, withSecret } from "./core/secrets.js";
 import { addRecord, recordsOf } from "./core/worklogs.js";
 import { addFavorite } from "./core/favorites.js";
 import { applyFetch, markSeen, rowsFor } from "./core/prs.js";
-import { isMissingError } from "./core/mdfile.js";
+import { isMissingError, isTooLargeError } from "./core/mdfile.js";
+import { toggleTodo, addEntry } from "./core/lists.js";
 import { resolveSettings, setKey, expandHome } from "./core/settings.js";
 
 export const SETTINGS_FILE = "settings.json";
@@ -18,6 +19,8 @@ export const ALERTS_FILE = "alerts.json";
 export const WORKLOGS_FILE = "worklogs.json";
 export const FAVORITES_FILE = "favorites.md";
 export const PRS_FILE = "prs.json";
+/** The owner's lists by widget id (D26, D40). */
+export const LIST_FILES = { todos: "todos.md", notes: "notes.md", priorities: "priorities.md" };
 
 export const dataDir = () => `${appHome()}/data/friday`;
 export const dataPath = (name) => `${dataDir()}/${name}`;
@@ -122,6 +125,27 @@ const mdIo = {
 export async function addToFavorites(key) {
   await ensureDataDir();
   return addFavorite(mdIo, dataPath(FAVORITES_FILE), key);
+}
+
+/** One list file: { ok: true, text } (text is null when the file does not exist) or { ok: false, error } for a real read error ("file too large" or "could not read the file"). */
+export async function readList(kind) {
+  try {
+    return { ok: true, text: await mdIo.read(dataPath(LIST_FILES[kind])) };
+  } catch (e) {
+    return { ok: false, error: isTooLargeError(e) ? "file too large" : "could not read the file" };
+  }
+}
+
+/** Flips one todo of todos.md. { ok, changed } or { ok: false, message }. */
+export async function toggleInTodos(row) {
+  await ensureDataDir();
+  return toggleTodo(mdIo, dataPath(LIST_FILES.todos), row);
+}
+
+/** Appends a line to todos.md, notes.md or priorities.md. { ok, changed } or { ok: false, message }. */
+export async function addToList(kind, text) {
+  await ensureDataDir();
+  return addEntry(mdIo, dataPath(LIST_FILES[kind]), kind, text);
 }
 
 /** The `sent` map of alerts.json (empty when the file is missing or unreadable). */

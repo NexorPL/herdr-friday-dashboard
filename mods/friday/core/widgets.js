@@ -9,6 +9,9 @@ export const WIDGETS = [
   { id: "jira", title: "Jira", sources: ["jira"] },
   { id: "favorites", title: "Favorites", sources: ["jira"] },
   { id: "prs", title: "Pull requests", sources: ["ado"] },
+  { id: "priorities", title: "Priorities", sources: ["jira"] },
+  { id: "todos", title: "Todos", sources: [] },
+  { id: "notes", title: "Notes", sources: [] },
 ];
 
 export const widgetById = (id) => WIDGETS.find((w) => w.id === id) ?? null;

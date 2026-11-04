@@ -79,26 +79,107 @@ export function isMissingError(e) {
   return /ENOENT|no such file|cannot find the (file|path)|os error [23]\b/i.test(String(e?.message ?? e ?? ""));
 }
 
+/** A Markdown heading: 1 to 6 hashes then a space or the end ("#idea" is a note, not a heading). */
+export const HEADING = /^\s*#{1,6}(\s|$)/;
+
+const BOX =/^(\s*[-*+]\s+\[)([ xX])(\])(?:\s+(.*))?$/;
+
+/** { done, body } for a Markdown checkbox line (`- [ ] text`, `- [x] text`), else null. */
+export function checkboxOf(text) {
+  const m = BOX.exec(text);
+  return m ? { done: m[2] !== " ", body: m[4] ?? "" } : null;
+}
+
+/**
+ * `text` with the checkbox line `target.text` (the raw line as the owner last saw it, state
+ * included) flipped; only the one character between the brackets changes, the line keeps its
+ * terminator. `target` is { text, count, above }: how many identical lines there were when the row
+ * was drawn and, for a duplicate, the lines above it. A lone line is found wherever it moved. One
+ * of several is toggled only at `hint` (its old index) and only if every line above it is
+ * unchanged, so lines added or sections swapped above it can never point at the wrong copy; edits
+ * below it do not matter. Null when nothing is certain (R10: "file changed, try again").
+ */
+export function toggleCheckbox(text, target, hint = 0) {
+  const doc = parseMd(text ?? "");
+  const count = target.count ?? 1;
+  let at = -1;
+  if (count === 1) {
+    const hits = doc.lines.flatMap((l, i) => (l.text === target.text ? [i] : []));
+    if (hits.length === 1) at = hits[0];
+  } else if (
+    doc.lines[hint]?.text === target.text &&
+    Array.isArray(target.above) && target.above.length === hint &&
+    target.above.every((t, i) => doc.lines[i].text === t)
+  ) at = hint;
+  if (at < 0 || !checkboxOf(doc.lines[at].text)) return null;
+  const t = doc.lines[at].text;
+  const k = BOX.exec(t)[1].length;
+  doc.lines[at].text = t.slice(0, k) + (t[k] === " " ? "x" : " ") + t.slice(k + 1);
+  return renderMd(doc);
+}
+
+/** True when `after` is `before` with at most one checkbox flipped and nothing else different. */
+export function onlyToggled(before, after) {
+  const x = parseMd(before ?? "");
+  const y = parseMd(after ?? "");
+  if (x.bom !== y.bom || x.lines.length !== y.lines.length) return false;
+  let flips = 0;
+  for (let i = 0; i < x.lines.length; i++) {
+    const a = x.lines[i];
+    const b = y.lines[i];
+    if (a.eol !== b.eol) return false;
+    if (a.text === b.text) continue;
+    const p = checkboxOf(a.text);
+    const q = checkboxOf(b.text);
+    if (!p || !q || p.done === q.done) return false;
+    // everything but the one character between the brackets must be identical
+    const k = BOX.exec(a.text)[1].length;
+    if (a.text.slice(0, k) + a.text.slice(k + 1) !== b.text.slice(0, k) + b.text.slice(k + 1)) return false;
+    flips++;
+  }
+  return flips <= 1;
+}
+
+/**
+ * A quick note (G29): `line` as one line on top of the file, right after its first heading, in the
+ * file's own line ending. A heading that is the last line makes it an append (see addLine).
+ */
+export function quickNote(text, line) {
+  const clean = cleanLine(line);
+  if (clean === null) throw new Error("not a single line");
+  const doc = parseMd(text ?? "");
+  const h = doc.lines.findIndex((l) => HEADING.test(l.text));
+  const at = h < 0 ? 0 : h + 1;
+  if (at >= doc.lines.length) return addLine(text, clean);
+  doc.lines.splice(at, 0, { text: clean, eol: eolOf(doc) });
+  return renderMd(doc);
+}
+
+/** True when a read error says the file is over the 1 MiB limit of readTextFile. */
+export function isTooLargeError(e) {
+  return /exceeds|too large|1 MiB/i.test(String(e?.message ?? e ?? ""));
+}
+
 export const CHANGED = "file changed, try again";
 
 /**
  * Reads the file, applies `change(text|null)` and writes the result with the snapshot as the
  * expected content. A rejected write is retried once from a fresh read (the change is applied again
  * to the file as it is now); `change` returns null when its target is gone, which gives CHANGED and
- * leaves the file alone. A result that would delete a line is refused. Resolves with
+ * leaves the file alone. A result that fails `keeps` (default: no line deleted or rewritten) is refused. Resolves with
  * { ok: true, changed } or { ok: false, message }; the message never quotes file content.
  */
-export async function editMd(io, path, change) {
+export async function editMd(io, path, change, keeps = keepsEveryLine) {
   for (let attempt = 0; attempt < 2; attempt++) {
     let before;
     try {
       before = await io.read(path);
-    } catch {
-      return { ok: false, message: "could not read the file" };
+    } catch (e) {
+      return { ok: false, message: isTooLargeError(e) ? "file too large" : "could not read the file" };
     }
     const after = change(before);
     if (after === null) return { ok: false, message: CHANGED };
-    if (!keepsEveryLine(before, after)) return { ok: false, message: "refused: a line would be deleted" };
+    if (!keeps(before, after)) return { ok: false, message: "refused: it would change other lines" };
     if (after === before) return { ok: true, changed: false };
     try {
       await io.write(path, after, before);
