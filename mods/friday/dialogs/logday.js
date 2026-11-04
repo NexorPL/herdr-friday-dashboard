@@ -9,7 +9,7 @@ import { jiraSession } from "../jira-session.js";
 import { listWorklogs, postWorklog } from "../core/jira.js";
 import { applyResults, offsetText, planDay, planText, loggedCount, logDay, summaryText, retrySelection } from "../core/worklogs.js";
 import { dayStart, addDays } from "../core/meetings.js";
-import { offsetNow } from "../net.js";
+import { offsetNow, jiraDeps } from "../net.js";
 import { button, note, stateColor } from "../ui.js";
 
 const LOGGABLE = (p) => p.status !== "no_key" && p.status !== "no_time";
@@ -67,6 +67,8 @@ export class LogDayDialog {
     this.progress = [0, this.plan.filter((p) => p.selected).length];
     cx.notify();
     cx.spawn(async (cx) => {
+      // Built here, from this job's own cx: the session's deps belong to the job that loaded it.
+      const deps = jiraDeps(cx);
       const offsetMin = offsetNow();
       const after = dayStart(this.day, offsetMin);
       const before = dayStart(addDays(this.day, 1), offsetMin);
@@ -76,8 +78,8 @@ export class LogDayDialog {
           records: this.records,
           offsetMin,
           now: Date.now(),
-          list: (key) => listWorklogs(s.deps, s.cfg, key, { after, before, accountId: s.accountId }),
-          post: (key, body) => postWorklog(s.deps, s.cfg, key, body),
+          list: (key) => listWorklogs(deps, s.cfg, key, { after, before, accountId: s.accountId }),
+          post: (key, body) => postWorklog(deps, s.cfg, key, body),
           saveRecord: async (r) => { this.records.push(r); await saveWorklogRecord(r); }, // in memory first: a failed write must not make a retry forget it
           progress: (done, total) => { this.progress = [done, total]; cx.notify(); },
         });
@@ -91,6 +93,7 @@ export class LogDayDialog {
   }
 
   retry(cx) {
+    if (this.phase !== "done") return;
     this.plan = retrySelection(this.plan, this.results);
     this.results = [];
     this.phase = "ready";
