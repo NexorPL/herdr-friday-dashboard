@@ -2,7 +2,7 @@
 // panes of it. The same mod also draws its own dialogs, with `props().dialog`.
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { props, theme, panes, spaces, focused, run, openOverlay, closeOverlay, nextCommand, watchFolder } from "herdr";
+import { props, theme, panes, spaces, focused, run, openOverlay, closeOverlay, nextCommand, watchFolder, window } from "herdr";
 import { Hub } from "./hub.js";
 import { WIDGETS, widgetById, DEFAULT_SPLITS } from "./core/widgets.js";
 import { planArrangement, splitTarget } from "./core/arrange.js";
@@ -71,8 +71,10 @@ export default class Friday extends View {
             const paths = await watchFolder(dataDir());
             this.watching = true;
             // only this pane's file, or the root itself (a batch with the root means everything)
-            const dir = dataDir().replaceAll("\\", "/");
-            const mine = paths.some((p) => { const q = String(p).replaceAll("\\", "/").replace(/\/$/, ""); return q === dir || q.endsWith(`/${LIST_FILES[this.widget.id]}`); });
+            // Windows and macOS file names are case-insensitive, Linux's are not.
+            const norm = (s) => (window().platform === "linux" ? s : s.toLowerCase()).replaceAll("\\", "/").replace(/\/$/, "");
+            const dir = norm(dataDir());
+            const mine = paths.some((p) => { const q = norm(String(p)); return q === dir || q.endsWith(`/${norm(LIST_FILES[this.widget.id])}`); });
             if (!this.closed && mine && (await this.readInto(true))) cx.notify();
           }
         } catch {
