@@ -4,8 +4,10 @@
 //   node scripts/demo-home.mjs <empty folder>
 //   HERDR_APP_HOME=<that folder> herdr-app
 //
-// It writes the mod, a settings.json whose ledger path is the fixture ledger (dated to today), and
-// shared.json with the ledger as Friday would have cached it. It writes no secrets.json and no
+// It writes the mod, a settings.json whose ledger path is the fixture ledger (dated to today) and a
+// made-up Jira site, favorites.md, and shared.json with the ledger and Jira issues as Friday would
+// have cached them (keys and titles are invented, D32). Without a token the Jira pane polls once
+// and shows "not set up"; the seeded cache is for reading the shape and the first frame. It writes no secrets.json and no
 // token of any kind, and it refuses the real app home. Note: a second herdr-app window may share
 // the owner's herdr-core, so Phase 1's screenshots are taken from the real window instead (see the PR).
 import { cpSync, mkdirSync, readFileSync, writeFileSync, readdirSync, existsSync } from "node:fs";
@@ -19,7 +21,16 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const FIXTURE_DAYS = ["2026-11-05", "2026-11-04", "2026-11-03"];
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
-const norm = (p) => resolve(p).replaceAll("\\", "/").toLowerCase();
+export const DEMO_JIRA = { site: "https://demo-team.atlassian.net", email: "demo@example.org" };
+const JIRA_KEY = `jira:${DEMO_JIRA.site}|${DEMO_JIRA.email}|scoped`; // hub.js sourceKey("jira", ...)
+const DEMO_ISSUES = [
+  ["DEMO-12", "Tidy the settings form", "In Progress", "indeterminate", "High", true],
+  ["DEMO-7", "Write the release notes", "To Do", "new", "Medium", true],
+  ["DEMO-31", "Check the nightly build", "To Do", "new", "Low", true],
+  ["DEMO-3", "Plan the next sprint", "In Progress", "indeterminate", "Medium", false],
+].map(([key, summary, status, status_category, priority, assigned]) => ({ key, summary, status, status_category, priority, assigned, url: `${DEMO_JIRA.site}/browse/${key}` }));
+
+const norm =(p) => resolve(p).replaceAll("\\", "/").toLowerCase();
 
 /** The folders that are a real app home: the default one, and the one HERDR_APP_HOME names. */
 function realHomes(env = process.env) {
@@ -57,13 +68,15 @@ export function seed(dir, { today = new Date(), env = process.env } = {}) {
   const ledgerPath = `${home.replaceAll("\\", "/")}/data/friday/pr-reviews.md`;
   const ledgerText = datedLedger(readFileSync(join(root, "test", "fixtures", "ledger.md"), "utf8"), today);
   writeFileSync(ledgerPath, ledgerText);
-  writeFileSync(join(home, "data", "friday", "settings.json"), `${JSON.stringify({ version: 1, ledger: { path: ledgerPath } }, null, 2)}\n`);
+  writeFileSync(join(home, "data", "friday", "settings.json"), `${JSON.stringify({ version: 1, ledger: { path: ledgerPath }, jira: DEMO_JIRA }, null, 2)}\n`);
+  writeFileSync(join(home, "data", "friday", "favorites.md"), "DEMO-3\nDEMO-99\n");
 
   const now = today.getTime();
   const shared = {
     layout: "main",
     "friday.ledger": { data: newestDays(parseLedger(ledgerText), 120), hash: "demo", path: ledgerPath, ok_at: now, error: null, backoff_until: 0 },
-    "friday.status": { ledger: { ...succeeded(now), for: ledgerPath } },
+    "friday.jira": { data: { issues: DEMO_ISSUES, missing: ["DEMO-99"], cloud_id: null, account_id: null, favorites: ["DEMO-3", "DEMO-99"], priorities: [] }, for: JIRA_KEY, ok_at: now },
+    "friday.status": { ledger: { ...succeeded(now), for: ledgerPath }, jira: { ...succeeded(now), for: JIRA_KEY } },
   };
   writeFileSync(join(home, "shared.json"), `${JSON.stringify(shared)}\n`);
   return { home, ledgerPath };
