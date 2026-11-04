@@ -46,6 +46,7 @@ export function validateLogTime({ duration, date, comment }, { key, now, offsetM
   if (seconds <= 0) return { ok: false, error: "The duration must be above zero." };
   if (seconds > MAX_SECONDS) return { ok: false, error: "The duration is at most 24 h." };
   const secs = Math.round(seconds);
+  if (secs < 60) return { ok: false, error: "The duration is at least 1 minute." }; // Jira keeps whole minutes
   const typed = String(date ?? "").trim();
   const day = typed === "" ? today : typed;
   if (!isDate(day)) return { ok: false, error: "The date must be written YYYY-MM-DD." };

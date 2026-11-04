@@ -9,10 +9,12 @@ const OFF = 60;
 const form = (over) => validateLogTime({ duration: "1h 30m", date: "", comment: "", ...over }, { key: "ABC-1", now: NOW, offsetMin: OFF });
 
 test("R07: a duration is required, above zero and at most 24 h", () => {
-  for (const d of ["", "  ", "soon", "0m", "0", "24h 1m", "25h"]) assert.equal(form({ duration: d }).ok, false, d);
+  for (const d of ["", "  ", "soon", "0m", "0", "0.4s", "1s", "59s", "0.01m", "24h 1m", "25h"]) assert.equal(form({ duration: d }).ok, false, d);
   assert.match(form({ duration: "" }).error, /duration/);
   assert.equal(form({ duration: "24h" }).ok, true);
-  assert.equal(form({ duration: "1s" }).ok, true);
+  assert.equal(form({ duration: "60s" }).ok, true);
+  assert.match(form({ duration: "30s" }).error, /at least 1 minute/);
+  assert.equal(form({ duration: "0m" }).error, "The duration must be above zero.");
   assert.equal(form({ duration: "1.5h" }).seconds, 5400);
 });
 
