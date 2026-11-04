@@ -4,8 +4,8 @@ import assert from "node:assert/strict";
 import { toggleCheckbox, onlyToggled, checkboxOf, quickNote, editMd, isTooLargeError, CHANGED } from "../mods/friday/core/mdfile.js";
 
 const BOM = "﻿";
-/** A row as todoRows makes it: the raw line text identifies the target; `unique` is false for a duplicate. */
-const row = (text, unique = true) => ({ text, unique });
+/** A row as todoRows makes it: the raw line, which copy of it this is (`rank`) and how many there were (`count`). */
+const row = (text, rank = 0, count = 1) => ({ text, rank, count });
 
 function disk(initial, beforeWrite) {
   const f = { text: initial, hook: beforeWrite };
@@ -41,24 +41,43 @@ test("a unique line moved by edits is still found; a missing one is refused", ()
   assert.equal(toggleCheckbox("plain\n", row("plain"), 0), null);
 });
 
-test("two equal lines under two headings: the hint decides only when it still points at the line", () => {
-  const same = "## Work\n- [ ] email\n## Home\n- [ ] email\n";
-  assert.equal(toggleCheckbox(same, row("- [ ] email", false), 3), "## Work\n- [ ] email\n## Home\n- [x] email\n");
-  assert.equal(toggleCheckbox(same, row("- [ ] email", false), 1), "## Work\n- [x] email\n## Home\n- [ ] email\n");
-  // three lines were added on top: hint 3 is now a heading and two lines match, so nothing is flipped
-  const moved = "x\ny\nz\n## Work\n- [ ] email\n## Home\n- [ ] email\n";
-  assert.equal(toggleCheckbox(moved, row("- [ ] email", false), 3), null);
+const WH = "## Work\n- [ ] email\n## Home\n- [ ] email\n";
+const HOME = row("- [ ] email", 1, 2); // the Home copy, drawn from WH at line 3
+const WORK = row("- [ ] email", 0, 2);
+
+test("two equal lines under two headings: a copy is toggled only where it was drawn", () => {
+  assert.equal(toggleCheckbox(WH, HOME, 3), "## Work\n- [ ] email\n## Home\n- [x] email\n");
+  assert.equal(toggleCheckbox(WH, WORK, 1), "## Work\n- [x] email\n## Home\n- [ ] email\n");
+});
+
+test("lines added above two equal rows: never the wrong copy (the Work email stays open)", () => {
+  const two = `x\ny\n${WH}`; // two lines added on top: hint 3 is now the Work email
+  assert.equal(toggleCheckbox(two, HOME, 3), null);
+  assert.equal(toggleCheckbox(two, WORK, 1), null);
+  const one = `x\n${WH}`;
+  assert.equal(toggleCheckbox(one, HOME, 3), null);
+  assert.equal(toggleCheckbox(one, WORK, 1), null);
+  assert.equal(toggleCheckbox(`x\ny\nz\n${WH}`, HOME, 3), null);
+});
+
+test("the same through editMd's retry: a file changed underneath is refused, never mis-toggled", async () => {
+  const f = disk(WH, (d) => { d.text = `x\ny\n${WH}`; });
+  assert.deepEqual(await editMd(f.io, "x.md", (t) => toggleCheckbox(t, HOME, 3), onlyToggled), { ok: false, message: CHANGED });
+  assert.equal(f.text, `x\ny\n${WH}`);
 });
 
 test("a deleted target with a same-body sibling is not toggled in its place", () => {
-  // the Home email (row 3, one of two equal rows) was deleted; the Work one must stay open
-  assert.equal(toggleCheckbox("## Work\n- [ ] email\n## Home\n", row("- [ ] email", false), 3), null);
-  assert.equal(toggleCheckbox("## Work\n- [ ] email\n", row("- [ ] email", true), 3), "## Work\n- [x] email\n", "a row that was unique may have moved");
+  assert.equal(toggleCheckbox("## Work\n- [ ] email\n## Home\n", HOME, 3), null);
+  assert.equal(toggleCheckbox("## Work\n- [ ] email\n", row("- [ ] email"), 3), "## Work\n- [x] email\n", "a row that was unique may have moved");
+});
+
+test("a unique row with an identical line pasted above is refused, not guessed", () => {
+  assert.equal(toggleCheckbox("- [ ] email\n## Home\n- [ ] email\n", row("- [ ] email"), 1), null);
 });
 
 test("a stale open row is not applied to a done line or to an open duplicate", () => {
   assert.equal(toggleCheckbox("- [x] a\n- [x] a\n", row("- [ ] a"), 0), null, "line 0 is now done");
-  assert.equal(toggleCheckbox("- [x] a\n- [ ] a\n", row("- [ ] a", false), 0), null, "the open duplicate below is not the row that was drawn at line 0");
+  assert.equal(toggleCheckbox("- [x] a\n- [ ] a\n", row("- [ ] a", 0, 2), 0), null, "the open duplicate below is not the row that was drawn at line 0");
 });
 
 test("onlyToggled accepts one flipped box and nothing else", () => {

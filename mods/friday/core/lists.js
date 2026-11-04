@@ -6,19 +6,24 @@ import { addLine, checkboxOf, cleanLine, editMd, onlyToggled, parseMd, quickNote
 
 /**
  * The checkbox lines of todos.md in file order: { line (index), text (the raw line, which identifies
- * it when toggling), unique (no other row has the same raw line), done, body }.
+ * it when toggling), count (how many lines in the file read exactly so), rank (which of them this
+ * is, from 0), done, body }.
  */
 export function todoRows(text) {
-  const rows = parseMd(text ?? "").lines.flatMap((l, line) => {
+  const lines = parseMd(text ?? "").lines;
+  return lines.flatMap((l, line) => {
     const b = checkboxOf(l.text);
-    return b ? [{ line, text: l.text, ...b }] : [];
+    if (!b) return [];
+    const same = lines.flatMap((o, i) => (o.text === l.text ? [i] : []));
+    return [{ line, text: l.text, count: same.length, rank: same.indexOf(line), ...b }];
   });
-  return rows.map((r) => ({ ...r, unique: rows.filter((o) => o.text === r.text).length === 1 }));
 }
+
+const HEADING = /^\s*#{1,6}(\s|$)/;
 
 /** The non-blank, non-heading lines of notes.md, newest first as the file has them: { line, text }. */
 export function noteRows(text) {
-  return parseMd(text ?? "").lines.flatMap((l, line) => (l.text.trim() === "" || l.text.trimStart().startsWith("#") ? [] : [{ line, text: l.text.trim() }]));
+  return parseMd(text ?? "").lines.flatMap((l, line) => (l.text.trim() === "" || HEADING.test(l.text) ? [] : [{ line, text: l.text.trim() }]));
 }
 
 const MARKER = /^\s*(?:[-*+]|\d+[.)])\s+/;
@@ -32,8 +37,9 @@ const MARKER = /^\s*(?:[-*+]|\d+[.)])\s+/;
 export function priorityRows(text, issues) {
   const byKey = new Map((issues ?? []).map((i) => [i.key, i]));
   return parseMd(text ?? "").lines
+    .filter((l) => !HEADING.test(l.text)) // judged on the raw line: "3. # Ship it" and "- #1 thing" are items
     .map((l) => l.text.replace(MARKER, "").trim())
-    .filter((t) => t !== "" && !t.startsWith("#"))
+    .filter((t) => t !== "")
     .map((t, i) => {
       const key = jiraKeys(t)[0] ?? null;
       const issue = key ? byKey.get(key) : null;

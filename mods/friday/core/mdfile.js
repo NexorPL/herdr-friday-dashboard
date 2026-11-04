@@ -90,19 +90,17 @@ export function checkboxOf(text) {
 /**
  * `text` with the checkbox line `target.text` (the raw line as the owner last saw it, state
  * included) flipped; only the one character between the brackets changes, the line keeps its
- * terminator. The line at `hint` (its old index) is used when it still reads exactly that; else the
- * one exact match anywhere, but only for a row that was unique when drawn (`target.unique`, default
- * true): a duplicate row whose line moved could be either sibling. Null when nothing is certain
- * (R10: "file changed, try again").
+ * terminator. `target` is { text, rank, count }: how many identical lines there were when the row
+ * was drawn and which of them this is. A lone line is found wherever it moved; one of several only
+ * at `hint` (its old index) and only if the number of copies is unchanged. Null when nothing is
+ * certain (R10: "file changed, try again").
  */
 export function toggleCheckbox(text, target, hint = 0) {
   const doc = parseMd(text ?? "");
+  const hits = doc.lines.flatMap((l, i) => (l.text === target.text ? [i] : []));
+  const count = target.count ?? 1;
   let at = -1;
-  if (doc.lines[hint]?.text === target.text) at = hint;
-  else if (target.unique !== false) {
-    const hits = doc.lines.flatMap((l, i) => (l.text === target.text ? [i] : []));
-    if (hits.length === 1) at = hits[0];
-  }
+  if (hits.length === count) at = count === 1 ? hits[0] : hits[target.rank ?? 0] === hint ? hint : -1;
   if (at < 0 || !checkboxOf(doc.lines[at].text)) return null;
   const t = doc.lines[at].text;
   const k = BOX.exec(t)[1].length;
