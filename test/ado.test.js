@@ -144,3 +144,15 @@ test("Save PAT and Remove write through saveSecret and say so without the PAT", 
   assert.deepEqual(said.map((s) => s[1]), ["ok", "ok", "error", "error"]);
   assert.equal(leaks(said), false);
 });
+
+import { widgetById, sourcesFor, SOURCES, WIDGETS } from "../mods/friday/core/widgets.js";
+import { httpsLink } from "../mods/friday/core/links.js";
+
+test("the PR widget reads the ado source, every PR link passes the https filter, and it is in the + menu", () => {
+  assert.deepEqual(widgetById("prs").sources, ["ado"]);
+  assert.deepEqual(sourcesFor(["prs"]), ["ado"]);
+  assert.equal(SOURCES.ado.interval, 120);
+  assert.ok(WIDGETS.some((w) => w.id === "prs"));
+  const [pr] = parsePrs({ value: [{ pullRequestId: 7, title: "t" }] }, { organization: "o", project: "P Q", repo: "r" });
+  assert.equal(httpsLink(pr.url), pr.url);
+});

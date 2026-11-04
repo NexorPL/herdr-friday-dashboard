@@ -12,6 +12,7 @@ import { renderSummary } from "./widgets/summary.js";
 import { renderLedger, flatRows } from "./widgets/ledger.js";
 import { renderMeetings, meetingRows, joinRow } from "./widgets/meetings.js";
 import { renderJira, jiraRows } from "./widgets/jira.js";
+import { renderPrs, prRows, openPr } from "./widgets/prs.js";
 import { renderFavorites, favoriteList, favoritesFile, logRow } from "./widgets/favorites.js";
 import { LogTimeDialog, AddFavoriteDialog } from "./dialogs/jira-dialogs.js";
 import { LogDayDialog } from "./dialogs/logday.js";
@@ -21,7 +22,7 @@ import { iconButton, note } from "./ui.js";
 import { openLink, openPath } from "./open.js";
 
 const DIALOGS = { settings: SettingsDialog, add: AddMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog };
-const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, jira: renderJira, favorites: renderFavorites };
+const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, jira: renderJira, favorites: renderFavorites, prs: renderPrs };
 
 export default class Friday extends View {
   init(_props, cx) {
@@ -92,6 +93,7 @@ export default class Friday extends View {
     if (this.widget && this.widget.id === "meetings") return this.meetingsKey(e, cx);
     if (this.widget && this.widget.id === "jira") return this.jiraKey(e, cx);
     if (this.widget && this.widget.id === "favorites") return this.favoritesKey(e, cx);
+    if (this.widget && this.widget.id === "prs") return this.prsKey(e, cx);
     if (!this.widget || this.widget.id !== "ledger") return;
     const ledger = this.hub.ledger();
     const rows = ledger ? flatRows(ledger.data) : [];
@@ -125,6 +127,17 @@ export default class Friday extends View {
     else if (e.key === "o" && rows[this.cursor]?.url) openLink(rows[this.cursor].url);
     else if (e.key === "a") this.openAddFavorite();
     else if (e.key === "e") openPath(favoritesFile());
+    else if (e.key === "r") this.hub.refresh(cx);
+    else return;
+    cx.notify();
+  }
+
+  prsKey(e, cx) {
+    const rows = prRows(this);
+    if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
+    else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
+    else if (e.key === "enter") openPr(this, rows[this.cursor], cx);
+    else if (e.key === "m") this.hub.markSeen(cx, null);
     else if (e.key === "r") this.hub.refresh(cx);
     else return;
     cx.notify();

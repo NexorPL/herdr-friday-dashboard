@@ -8,6 +8,7 @@ import { claimAlerts as claimInto } from "./core/alerts.js";
 import { secretFrom, withSecret } from "./core/secrets.js";
 import { addRecord, recordsOf } from "./core/worklogs.js";
 import { addFavorite } from "./core/favorites.js";
+import { applyFetch, markSeen, rowsFor } from "./core/prs.js";
 import { isMissingError } from "./core/mdfile.js";
 import { resolveSettings, setKey, expandHome } from "./core/settings.js";
 
@@ -16,6 +17,7 @@ export const SECRETS_FILE = "secrets.json";
 export const ALERTS_FILE = "alerts.json";
 export const WORKLOGS_FILE = "worklogs.json";
 export const FAVORITES_FILE = "favorites.md";
+export const PRS_FILE = "prs.json";
 
 export const dataDir = () => `${appHome()}/data/friday`;
 export const dataPath = (name) => `${dataDir()}/${name}`;
@@ -146,6 +148,34 @@ export async function claimAlerts(due, now) {
     return r.next;
   }, Date.now(), false);
   return claimed;
+}
+
+/**
+ * Records a successful PR fetch in prs.json (compare-and-swap) and returns { owed, rows }: the new
+ * PRs that need a toast, already marked notified in the file (R11), and the repo's active rows.
+ * Throws if the file cannot be written or is a newer version, and then nothing is shown.
+ */
+export async function recordPrs(key, fetched, now) {
+  await ensureDataDir();
+  let result = { owed: [], rows: [] };
+  await updateJson(io, dataPath(PRS_FILE), (raw) => {
+    const r = applyFetch(raw, key, fetched, now);
+    result = { owed: r.owed, rows: rowsFor(r.next, key) };
+    return r.next;
+  }, now, false);
+  return result;
+}
+
+/** Clears the "new" mark of one PR (`id`) or of every PR of the repo (null); returns the repo's rows. */
+export async function markPrsSeen(key, id) {
+  await ensureDataDir();
+  let rows = [];
+  await updateJson(io, dataPath(PRS_FILE), (raw) => {
+    const next = markSeen(raw, key, id);
+    rows = rowsFor(next, key);
+    return next;
+  }, Date.now(), false);
+  return rows;
 }
 
 /** A path from settings with `~` expanded. */

@@ -143,11 +143,11 @@ test("the opener gets the target as one argument, never through a shell", () => 
 });
 
 test("widget ids are the contract saved in the owner's tabs", () => {
-  assert.deepEqual(WIDGETS.map((w) => w.id), ["summary", "ledger", "meetings", "jira", "favorites"]);
+  assert.deepEqual(WIDGETS.map((w) => w.id), ["summary", "ledger", "meetings", "jira", "favorites", "prs"]);
   assert.equal(widgetById("nope"), null);
-  assert.deepEqual(sourcesFor(["summary", "ledger", "ledger"]), ["ledger", "calendar", "jira"]);
+  assert.deepEqual(sourcesFor(["summary", "ledger", "ledger"]), ["ledger", "calendar", "jira", "ado"]);
   assert.deepEqual(sourcesFor(["ledger"]), ["ledger"]);
-  assert.deepEqual(DEFAULT_SPLITS, [["ledger", "down"], ["meetings", "right"], ["jira", "down"]]);
+  assert.deepEqual(DEFAULT_SPLITS, [["ledger", "down"], ["meetings", "right"], ["jira", "down"], ["prs", "down"]]);
   for (const [widget] of DEFAULT_SPLITS) assert.ok(widgetById(widget));
   for (const w of WIDGETS) for (const source of w.sources) assert.ok(SOURCES[source], w.id);
 });
@@ -185,6 +185,7 @@ test("the first pane arranges the default panes only when it is alone in its tab
     { pane: "p1", direction: "down", mod: "friday", props: { widget: "ledger" } },
     { pane: "p1", direction: "right", mod: "friday", props: { widget: "meetings" } },
     { pane: "p1", direction: "down", mod: "friday", props: { widget: "jira" } },
+    { pane: "p1", direction: "down", mod: "friday", props: { widget: "prs" } },
   ]);
   assert.deepEqual(planArrangement([...alone, { pane: "p2", mod: "friday", tab: "t1" }], DEFAULT_SPLITS), [], "an arranged tab is left alone");
   assert.deepEqual(planArrangement([], DEFAULT_SPLITS), []);
