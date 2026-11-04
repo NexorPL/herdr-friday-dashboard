@@ -16,7 +16,7 @@ import { renderPrs, prRows, openPr } from "./widgets/prs.js";
 import { renderFavorites, favoriteList, favoritesFile, logRow } from "./widgets/favorites.js";
 import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, editFile } from "./widgets/lists.js";
 import { AddLineDialog } from "./dialogs/addline.js";
-import { readList, dataDir } from "./store.js";
+import { readList, dataDir, LIST_FILES } from "./store.js";
 import { LogTimeDialog, AddFavoriteDialog } from "./dialogs/jira-dialogs.js";
 import { LogDayDialog } from "./dialogs/logday.js";
 import { SettingsDialog } from "./dialogs/settings.js";
@@ -67,10 +67,13 @@ export default class Friday extends View {
       // herdr-app tells when something in the data folder changed; if the watch cannot start the timer above carries on alone.
       cx.spawn(async (cx) => {
         try {
-          for (;;) {
-            await watchFolder(dataDir());
+          while (!this.closed) {
+            const paths = await watchFolder(dataDir());
             this.watching = true;
-            if (await this.readInto()) cx.notify();
+            // only this pane's file, or the root itself (a batch with the root means everything)
+            const dir = dataDir().replaceAll("\\", "/");
+            const mine = paths.some((p) => { const q = String(p).replaceAll("\\", "/").replace(/\/$/, ""); return q === dir || q.endsWith(`/${LIST_FILES[this.widget.id]}`); });
+            if (!this.closed && mine && (await this.readInto(true))) cx.notify();
           }
         } catch {
           this.watching = false;
@@ -115,6 +118,11 @@ export default class Friday extends View {
     cx.spawn(async (cx) => {
       if (await this.readInto()) cx.notify();
     });
+  }
+
+  /** The host closes this copy: the folder watch loop ends after its next event. */
+  close() {
+    this.closed = true;
   }
 
   /** The first pane of a new Friday tab splits in the default panes, once, when it is alone. */

@@ -117,7 +117,12 @@ export async function saveWorklogRecord(record) {
 /** favorites.md as a file of the R10 writer: a missing file reads as null and is created by the first add. */
 const mdIo = {
   // null (a missing file) lets the first add create it; any other error is a failed read, never an empty file.
-  read: (path) => readTextFile(path).catch((e) => (isMissingError(e) ? null : Promise.reject(e))),
+  // A file over 1 MiB is told by its size when the error text does not say so.
+  read: (path) => readTextFile(path).catch(async (e) => {
+    if (isMissingError(e)) return null;
+    const big = isTooLargeError(e) || (await fs.stat(path).then((s) => s.size > 1024 * 1024).catch(() => false));
+    return Promise.reject(big ? new Error("Text file exceeds 1 MiB") : e);
+  }),
   write: (path, text, expected) => writeTextFile(path, text, expected).then(() => undefined),
 };
 

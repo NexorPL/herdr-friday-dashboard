@@ -169,7 +169,7 @@ export async function editMd(io, path, change, keeps = keepsEveryLine) {
     }
     const after = change(before);
     if (after === null) return { ok: false, message: CHANGED };
-    if (!keeps(before, after)) return { ok: false, message: "refused: a line would be deleted" };
+    if (!keeps(before, after)) return { ok: false, message: "refused: it would change other lines" };
     if (after === before) return { ok: true, changed: false };
     try {
       await io.write(path, after, before);

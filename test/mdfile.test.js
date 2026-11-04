@@ -115,7 +115,7 @@ test("two rejected writes give CHANGED, a read failure a message, and nothing is
 test("a change that would delete a line is refused and never written", async () => {
   const f = disk("a\nb\nc\n");
   const r = await editMd(f.io, "x.md", () => "a\nc\n");
-  assert.deepEqual(r, { ok: false, message: "refused: a line would be deleted" });
+  assert.deepEqual(r, { ok: false, message: "refused: it would change other lines" });
   assert.equal(f.text, "a\nb\nc\n");
 });
 

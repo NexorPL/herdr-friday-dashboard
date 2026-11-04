@@ -12,7 +12,7 @@ const listFile = (id) => dataPath(LIST_FILES[id]).replaceAll("\\", "/");
 
 /** `e`: opens the file in the default program, once there is a file to open. */
 export function editFile(v) {
-  if (v.list.text === null) v.message = "no file yet, add a line first";
+  if (v.list.text === null && !v.list.error) v.message = "no file yet, add a line first";
   else openPath(listFile(v.widget.id));
 }
 
