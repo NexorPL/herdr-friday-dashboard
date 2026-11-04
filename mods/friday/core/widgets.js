@@ -3,7 +3,7 @@
 // (BACKWARD_COMPATIBILITY.md). A phase adds its widgets here when it builds them.
 
 export const WIDGETS = [
-  { id: "summary", title: "Summary", sources: ["ledger", "calendar"] },
+  { id: "summary", title: "Summary", sources: ["ledger", "calendar", "jira"] },
   { id: "ledger", title: "Review ledger", sources: ["ledger"] },
   { id: "meetings", title: "Meetings", sources: ["calendar"] },
   { id: "jira", title: "Jira", sources: ["jira"] },

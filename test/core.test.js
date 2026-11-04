@@ -145,7 +145,7 @@ test("the opener gets the target as one argument, never through a shell", () => 
 test("widget ids are the contract saved in the owner's tabs", () => {
   assert.deepEqual(WIDGETS.map((w) => w.id), ["summary", "ledger", "meetings", "jira", "favorites"]);
   assert.equal(widgetById("nope"), null);
-  assert.deepEqual(sourcesFor(["summary", "ledger", "ledger"]), ["ledger", "calendar"]);
+  assert.deepEqual(sourcesFor(["summary", "ledger", "ledger"]), ["ledger", "calendar", "jira"]);
   assert.deepEqual(sourcesFor(["ledger"]), ["ledger"]);
   assert.deepEqual(DEFAULT_SPLITS, [["ledger", "down"], ["meetings", "right"], ["jira", "down"]]);
   for (const [widget] of DEFAULT_SPLITS) assert.ok(widgetById(widget));
