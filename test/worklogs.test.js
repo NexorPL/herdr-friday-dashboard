@@ -180,3 +180,13 @@ test("the Log button validates, posts once, records, and never retries a maybe-s
   const nofile = await run1({ saveRecord: async () => { throw new Error("disk"); } });
   assert.deepEqual([nofile.done, nofile.said[0][1]], [true, "stale"]);
 });
+
+test("listWorklogs without an account id fails instead of listing nobody", async () => {
+  let called = false;
+  const f = async () => { called = true; return ok({ worklogs: [] }); };
+  for (const accountId of [null, undefined, ""]) {
+    const r = await listWorklogs(run(f), CFG, "ABC-1", { after: 1, before: 2, accountId });
+    assert.deepEqual([r.ok, r.message], [false, "jira: account unknown"]);
+  }
+  assert.equal(called, false);
+});

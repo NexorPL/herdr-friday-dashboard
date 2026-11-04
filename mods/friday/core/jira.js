@@ -196,6 +196,7 @@ export function commentText(c) {
  * cloudId when the token is scoped, and `accountId` is the owner's.
  */
 export async function listWorklogs(deps, cfg, key, { after, before, accountId }) {
+  if (!accountId) return fail(undefined, "jira: account unknown"); // R09 matches by author: never list nobody
   const b = await base(deps, cfg, cfg.cloudId);
   if (!b.ok) return b;
   const r = await get(deps, `${b.base}/rest/api/3/issue/${encodeURIComponent(key)}/worklog?startedAfter=${after}&startedBefore=${before}`, authHeader(cfg.email, cfg.token));
