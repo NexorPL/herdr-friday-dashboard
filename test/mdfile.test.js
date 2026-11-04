@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseMd, renderMd, addLine, cleanLine, keepsEveryLine, editMd, CHANGED } from "../mods/friday/core/mdfile.js";
+import { parseMd, renderMd, addLine, cleanLine, keepsEveryLine, editMd, isMissingError, CHANGED } from "../mods/friday/core/mdfile.js";
 
 const BOM = "﻿";
 
@@ -47,7 +47,19 @@ test("the no-deletion guard", () => {
   assert.equal(keepsEveryLine("a\nb\n", "a\n"), false);
   assert.equal(keepsEveryLine("a\nb\n", "b\na\n"), false);
   assert.equal(keepsEveryLine(null, "a"), true);
-  assert.equal(keepsEveryLine("a\r\nb\r\n", "a\nb\n"), true, "a terminator change is not a deleted line");
+  assert.equal(keepsEveryLine("a\r\nb\r\n", "a\nb\n"), false, "a rewritten line ending is a rewritten line");
+  assert.equal(keepsEveryLine("a\r\nb", "a\r\nb\r\nc"), true, "the old last line may gain a terminator");
+  assert.equal(keepsEveryLine("a\nb", "a\nb\r\nc"), true);
+  assert.equal(keepsEveryLine("a\nb\n", "a\nb\r\nc"), false, "but not a changed one");
+  assert.equal(keepsEveryLine(`${BOM}a\n`, "a\nb\n"), false, "the BOM stays");
+  assert.equal(keepsEveryLine("a\n", `${BOM}a\nb\n`), false, "and is not added");
+  assert.equal(keepsEveryLine(`${BOM}a\n`, `${BOM}a\nb\n`), true);
+});
+
+test("only a missing file reads as missing; a real read error is not a missing file", () => {
+  for (const m of ["ENOENT: no such file or directory", "No such file or directory (os error 2)", "The system cannot find the file specified. (os error 2)"]) assert.equal(isMissingError(new Error(m)), true, m);
+  for (const m of ["Text file exceeds 1 MiB", "permission denied", "EBUSY: resource busy"]) assert.equal(isMissingError(new Error(m)), false, m);
+  assert.equal(isMissingError(null), false);
 });
 
 /** A fake file with compare-and-swap writes; `beforeWrite` runs once, to change it underneath. */

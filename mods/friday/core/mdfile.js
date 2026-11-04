@@ -54,17 +54,29 @@ export function addLine(text, line) {
   return renderMd(doc);
 }
 
-/** True when `after` keeps every line of `before` in order (the R10 guard: nothing is deleted). */
+/**
+ * True when `after` keeps every line of `before` in order, byte for byte (R10: nothing is deleted or
+ * rewritten): same text, same terminator, the same BOM. Only the old last line may gain a terminator,
+ * because an added line goes below it.
+ */
 export function keepsEveryLine(before, after) {
-  const a = parseMd(before ?? "").lines;
-  const b = parseMd(after ?? "").lines;
+  const x = parseMd(before ?? "");
+  const y = parseMd(after ?? "");
+  if (x.lines.length > 0 && x.bom !== y.bom) return false;
   let j = 0;
-  for (const line of a) {
-    while (j < b.length && b[j].text !== line.text) j++;
-    if (j === b.length) return false;
+  for (let i = 0; i < x.lines.length; i++) {
+    const line = x.lines[i];
+    const lastOpen = i === x.lines.length - 1 && line.eol === "";
+    while (j < y.lines.length && !(y.lines[j].text === line.text && (y.lines[j].eol === line.eol || lastOpen))) j++;
+    if (j === y.lines.length) return false;
     j++;
   }
   return true;
+}
+
+/** True when a read error says the file does not exist (as opposed to locked, too large, denied). */
+export function isMissingError(e) {
+  return /ENOENT|no such file|cannot find the (file|path)|os error [23]\b/i.test(String(e?.message ?? e ?? ""));
 }
 
 export const CHANGED = "file changed, try again";

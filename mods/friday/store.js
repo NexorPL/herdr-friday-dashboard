@@ -8,6 +8,7 @@ import { claimAlerts as claimInto } from "./core/alerts.js";
 import { secretFrom, withSecret } from "./core/secrets.js";
 import { addRecord, recordsOf } from "./core/worklogs.js";
 import { addFavorite } from "./core/favorites.js";
+import { isMissingError } from "./core/mdfile.js";
 import { resolveSettings, setKey, expandHome } from "./core/settings.js";
 
 export const SETTINGS_FILE = "settings.json";
@@ -110,7 +111,8 @@ export async function saveWorklogRecord(record) {
 
 /** favorites.md as a file of the R10 writer: a missing file reads as null and is created by the first add. */
 const mdIo = {
-  read: (path) => readTextFile(path).catch(() => null),
+  // null (a missing file) lets the first add create it; any other error is a failed read, never an empty file.
+  read: (path) => readTextFile(path).catch((e) => (isMissingError(e) ? null : Promise.reject(e))),
   write: (path, text, expected) => writeTextFile(path, text, expected).then(() => undefined),
 };
 
