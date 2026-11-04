@@ -3,12 +3,16 @@
 import { jiraKeys } from "./jira.js";
 import { addLine, checkboxOf, cleanLine, editMd, onlyToggled, parseMd, toggleCheckbox } from "./mdfile.js";
 
-/** The checkbox lines of todos.md in file order: { line (index), done, body }. */
+/**
+ * The checkbox lines of todos.md in file order: { line (index), text (the raw line, which identifies
+ * it when toggling), unique (no other row has the same raw line), done, body }.
+ */
 export function todoRows(text) {
-  return parseMd(text ?? "").lines.flatMap((l, line) => {
+  const rows = parseMd(text ?? "").lines.flatMap((l, line) => {
     const b = checkboxOf(l.text);
-    return b ? [{ line, ...b }] : [];
+    return b ? [{ line, text: l.text, ...b }] : [];
   });
+  return rows.map((r) => ({ ...r, unique: rows.filter((o) => o.text === r.text).length === 1 }));
 }
 
 /** The non-blank lines of notes.md in file order: { line, text }. */

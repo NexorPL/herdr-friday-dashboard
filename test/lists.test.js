@@ -26,7 +26,8 @@ test("priority rows are plain text without Jira data", () => {
 });
 
 test("todo and note rows", () => {
-  assert.deepEqual(todoRows("# T\n- [ ] a\r\n- [x] b\nplain\n"), [{ line: 1, done: false, body: "a" }, { line: 2, done: true, body: "b" }]);
+  assert.deepEqual(todoRows("# T\n- [ ] a\r\n- [x] b\nplain\n"), [{ line: 1, text: "- [ ] a", unique: true, done: false, body: "a" }, { line: 2, text: "- [x] b", unique: true, done: true, body: "b" }]);
+  assert.deepEqual(todoRows("- [ ] a\n- [ ] a\n").map((r) => r.unique), [false, false]);
   assert.deepEqual(noteRows("one\n\n  two \n"), [{ line: 0, text: "one" }, { line: 2, text: "two" }]);
   assert.deepEqual(todoRows(null), []);
 });
@@ -42,7 +43,7 @@ test("toggleTodo and addEntry write through the R10 writer", async () => {
   assert.equal((await toggleTodo(f.io, "t.md", todoRows(f.text)[1])).ok, true);
   assert.equal(f.text, "- [ ] a\r\n- [x] b");
   f.text = "- [ ] a\n";
-  assert.equal((await toggleTodo(f.io, "t.md", { line: 1, done: false, body: "b" })).message, "file changed, try again");
+  assert.equal((await toggleTodo(f.io, "t.md", { line: 1, text: "- [ ] b", unique: true, done: false, body: "b" })).message, "file changed, try again");
   assert.equal(f.text, "- [ ] a\n");
   await addEntry(f.io, "t.md", "todos", " call the bank ");
   assert.equal(f.text, "- [ ] a\n- [ ] call the bank\n");

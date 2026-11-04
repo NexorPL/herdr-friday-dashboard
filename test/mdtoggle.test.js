@@ -1,10 +1,11 @@
 // Toggling a checkbox and a quick note (Phase 5, R10).
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { toggleCheckbox, onlyToggled, checkboxOf, quickNote, editMd, CHANGED } from "../mods/friday/core/mdfile.js";
+import { toggleCheckbox, onlyToggled, checkboxOf, quickNote, editMd, isTooLargeError, CHANGED } from "../mods/friday/core/mdfile.js";
 
 const BOM = "﻿";
-const on = (body) => ({ body, done: false });
+/** A row as todoRows makes it: the raw line text identifies the target; `unique` is false for a duplicate. */
+const row = (text, unique = true) => ({ text, unique });
 
 function disk(initial, beforeWrite) {
   const f = { text: initial, hook: beforeWrite };
@@ -20,25 +21,44 @@ function disk(initial, beforeWrite) {
 }
 
 test("toggling flips only the bracket character and keeps every terminator", () => {
-  assert.equal(toggleCheckbox("- [ ] a\n- [ ] b\n", on("b"), 1), "- [ ] a\n- [x] b\n");
-  assert.equal(toggleCheckbox("- [ ] a\r\n- [ ] b\r\n", on("a")), "- [x] a\r\n- [ ] b\r\n");
-  assert.equal(toggleCheckbox("- [x] a\n", { body: "a", done: true }), "- [ ] a\n");
-  assert.equal(toggleCheckbox("- [X] a\n", { body: "a", done: true }), "- [ ] a\n");
-  assert.equal(toggleCheckbox("* [ ] a  b\n", on("a  b")), "* [x] a  b\n");
+  assert.equal(toggleCheckbox("- [ ] a\n- [ ] b\n", row("- [ ] b"), 1), "- [ ] a\n- [x] b\n");
+  assert.equal(toggleCheckbox("- [ ] a\r\n- [ ] b\r\n", row("- [ ] a"), 0), "- [x] a\r\n- [ ] b\r\n");
+  assert.equal(toggleCheckbox("- [x] a\n", row("- [x] a"), 0), "- [ ] a\n");
+  assert.equal(toggleCheckbox("- [X] a\n", row("- [X] a"), 0), "- [ ] a\n");
+  assert.equal(toggleCheckbox("* [ ] a  b\n", row("* [ ] a  b"), 0), "* [x] a  b\n");
 });
 
 test("toggling a mixed-ending, BOM or final-newline-less file changes one character", () => {
-  assert.equal(toggleCheckbox("x\r\n- [ ] a\n\t- [ ] b\r\nlast", on("b"), 2), "x\r\n- [ ] a\n\t- [x] b\r\nlast");
-  assert.equal(toggleCheckbox(`${BOM}- [ ] a`, on("a")), `${BOM}- [x] a`);
-  assert.equal(toggleCheckbox("- [ ] a\r\n- [ ] b", on("b"), 1), "- [ ] a\r\n- [x] b");
+  assert.equal(toggleCheckbox("x\r\n- [ ] a\n\t- [ ] b\r\nlast", row("\t- [ ] b"), 2), "x\r\n- [ ] a\n\t- [x] b\r\nlast");
+  assert.equal(toggleCheckbox(`${BOM}- [ ] a`, row("- [ ] a"), 0), `${BOM}- [x] a`);
+  assert.equal(toggleCheckbox("- [ ] a\r\n- [ ] b", row("- [ ] b"), 1), "- [ ] a\r\n- [x] b");
 });
 
-test("toggling finds the line by content in a changed file, nearest the old index", () => {
-  assert.equal(toggleCheckbox("new\n- [ ] a\n- [ ] b\n", on("b"), 1), "new\n- [ ] a\n- [x] b\n");
-  assert.equal(toggleCheckbox("- [ ] a\n- [ ] a\n- [ ] a\n", on("a"), 2), "- [ ] a\n- [ ] a\n- [x] a\n");
-  assert.equal(toggleCheckbox("- [ ] a\n", on("gone")), null);
-  assert.equal(toggleCheckbox("- [x] a\n", on("a")), null, "already toggled by someone else");
-  assert.equal(toggleCheckbox("plain\n", on("plain")), null);
+test("a unique line moved by edits is still found; a missing one is refused", () => {
+  assert.equal(toggleCheckbox("new\n- [ ] a\n- [ ] b\n", row("- [ ] b"), 1), "new\n- [ ] a\n- [x] b\n");
+  assert.equal(toggleCheckbox("- [ ] a\n", row("- [ ] gone"), 0), null);
+  assert.equal(toggleCheckbox("- [x] a\n", row("- [ ] a"), 0), null, "already toggled by someone else");
+  assert.equal(toggleCheckbox("plain\n", row("plain"), 0), null);
+});
+
+test("two equal lines under two headings: the hint decides only when it still points at the line", () => {
+  const same = "## Work\n- [ ] email\n## Home\n- [ ] email\n";
+  assert.equal(toggleCheckbox(same, row("- [ ] email", false), 3), "## Work\n- [ ] email\n## Home\n- [x] email\n");
+  assert.equal(toggleCheckbox(same, row("- [ ] email", false), 1), "## Work\n- [x] email\n## Home\n- [ ] email\n");
+  // three lines were added on top: hint 3 is now a heading and two lines match, so nothing is flipped
+  const moved = "x\ny\n## Work\n- [ ] email\n## Home\n- [ ] email\n";
+  assert.equal(toggleCheckbox(moved, row("- [ ] email", false), 3), null);
+});
+
+test("a deleted target with a same-body sibling is not toggled in its place", () => {
+  // the Home email (row 3, one of two equal rows) was deleted; the Work one must stay open
+  assert.equal(toggleCheckbox("## Work\n- [ ] email\n## Home\n", row("- [ ] email", false), 3), null);
+  assert.equal(toggleCheckbox("## Work\n- [ ] email\n", row("- [ ] email", true), 3), "## Work\n- [x] email\n", "a row that was unique may have moved");
+});
+
+test("a stale open row is not applied to a done line or to an open duplicate", () => {
+  assert.equal(toggleCheckbox("- [x] a\n- [x] a\n", row("- [ ] a"), 0), null, "line 0 is now done");
+  assert.equal(toggleCheckbox("- [x] a\n- [ ] a\n", row("- [ ] a", false), 0), null, "the open duplicate below is not the row that was drawn at line 0");
 });
 
 test("onlyToggled accepts one flipped box and nothing else", () => {
@@ -53,8 +73,17 @@ test("onlyToggled accepts one flipped box and nothing else", () => {
   assert.equal(checkboxOf("- [] a"), null);
 });
 
+test("onlyToggled refuses changed indent, marker or spacing around the box", () => {
+  assert.equal(onlyToggled("  - [ ] a\n", "- [x] a\n"), false);
+  assert.equal(onlyToggled("- [ ] a\n", "* [x] a\n"), false);
+  assert.equal(onlyToggled("- [ ] a\n", "-  [x] a\n"), false);
+  assert.equal(onlyToggled("- [ ] a\n", "- [x]  a\n"), false);
+  assert.equal(onlyToggled("- [ ] a\n", "- [y] a\n"), false);
+  assert.equal(onlyToggled("- [ ] a\n", "- [x] a\n"), true);
+});
+
 test("editMd toggles against a file changed underneath, and refuses when the line is gone", async () => {
-  const edit = (t) => toggleCheckbox(t, on("b"), 1);
+  const edit = (t) => toggleCheckbox(t, row("- [ ] b"), 1);
   const f = disk("- [ ] a\n- [ ] b\n", (d) => { d.text = "top\r\n- [ ] a\n- [ ] b\n"; });
   assert.deepEqual(await editMd(f.io, "x.md", edit, onlyToggled), { ok: true, changed: true });
   assert.equal(f.text, "top\r\n- [ ] a\n- [x] b\n");
@@ -66,10 +95,21 @@ test("editMd toggles against a file changed underneath, and refuses when the lin
   assert.equal(h.text, "- [ ] a\n");
 });
 
-test("a quick note appends one line and leaves the rest byte for byte", () => {
-  assert.equal(quickNote("n1\r\nn2\r\n", "call back"), "n1\r\nn2\r\ncall back\r\n");
-  assert.equal(quickNote("n1\nn2", "x"), "n1\nn2\nx");
-  assert.equal(quickNote(`${BOM}n1\r\n`, "x"), `${BOM}n1\r\nx\r\n`);
+test("a read error that says the file is too large is told apart", async () => {
+  assert.equal(isTooLargeError(new Error("Text file exceeds 1 MiB")), true);
+  assert.equal(isTooLargeError(new Error("permission denied")), false);
+  const big = { read: async () => { throw new Error("Text file exceeds 1 MiB"); }, write: async () => {} };
+  assert.deepEqual(await editMd(big, "x.md", (t) => t), { ok: false, message: "file too large" });
+});
+
+test("a quick note goes on top, after the first heading, in the file's own line ending", () => {
+  assert.equal(quickNote("# Notes\nold\n", "new"), "# Notes\nnew\nold\n");
+  assert.equal(quickNote("# Notes\r\nold\r\n", "new"), "# Notes\r\nnew\r\nold\r\n");
+  assert.equal(quickNote("old\nolder\n", "new"), "new\nold\nolder\n");
+  assert.equal(quickNote(`${BOM}# N\nold`, "new"), `${BOM}# N\nnew\nold`);
+  assert.equal(quickNote("# Notes", "new"), "# Notes\nnew", "heading is the last line, no final newline: same as an append");
+  assert.equal(quickNote("# Notes\n", "new"), "# Notes\nnew\n");
+  assert.equal(quickNote("a\nb", "new"), "new\na\nb", "no final newline stays");
   assert.equal(quickNote(null, "first"), "first\n");
   assert.throws(() => quickNote("a\n", "two\nlines"));
 });

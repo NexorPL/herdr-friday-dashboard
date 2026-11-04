@@ -88,19 +88,22 @@ export function checkboxOf(text) {
 }
 
 /**
- * `text` with the checkbox line `{ body, done }` (its text and state as the owner last saw them)
- * flipped; only the one character between the brackets changes, the line keeps its terminator.
- * The line is found by content, not number, so a file edited meanwhile still works: of equal lines
- * the one nearest `hint` (its old index) wins. Null when no such line is left (R10: "file changed").
+ * `text` with the checkbox line `target.text` (the raw line as the owner last saw it, state
+ * included) flipped; only the one character between the brackets changes, the line keeps its
+ * terminator. The line at `hint` (its old index) is used when it still reads exactly that; else the
+ * one exact match anywhere, but only for a row that was unique when drawn (`target.unique`, default
+ * true): a duplicate row whose line moved could be either sibling. Null when nothing is certain
+ * (R10: "file changed, try again").
  */
 export function toggleCheckbox(text, target, hint = 0) {
   const doc = parseMd(text ?? "");
   let at = -1;
-  doc.lines.forEach((l, i) => {
-    const b = checkboxOf(l.text);
-    if (b && b.body === target.body && b.done === target.done && (at < 0 || Math.abs(i - hint) < Math.abs(at - hint))) at = i;
-  });
-  if (at < 0) return null;
+  if (doc.lines[hint]?.text === target.text) at = hint;
+  else if (target.unique !== false) {
+    const hits = doc.lines.flatMap((l, i) => (l.text === target.text ? [i] : []));
+    if (hits.length === 1) at = hits[0];
+  }
+  if (at < 0 || !checkboxOf(doc.lines[at].text)) return null;
   const t = doc.lines[at].text;
   const k = BOX.exec(t)[1].length;
   doc.lines[at].text = t.slice(0, k) + (t[k] === " " ? "x" : " ") + t.slice(k + 1);
@@ -120,14 +123,34 @@ export function onlyToggled(before, after) {
     if (a.text === b.text) continue;
     const p = checkboxOf(a.text);
     const q = checkboxOf(b.text);
-    if (!p || !q || p.body !== q.body || p.done === q.done) return false;
+    if (!p || !q || p.done === q.done) return false;
+    // everything but the one character between the brackets must be identical
+    const k = BOX.exec(a.text)[1].length;
+    if (a.text.slice(0, k) + a.text.slice(k + 1) !== b.text.slice(0, k) + b.text.slice(k + 1)) return false;
     flips++;
   }
   return flips <= 1;
 }
 
-/** A quick note: `line` appended as one line (see addLine). */
-export const quickNote = addLine;
+/**
+ * A quick note (G29): `line` as one line on top of the file, right after its first heading, in the
+ * file's own line ending. A heading that is the last line makes it an append (see addLine).
+ */
+export function quickNote(text, line) {
+  const clean = cleanLine(line);
+  if (clean === null) throw new Error("not a single line");
+  const doc = parseMd(text ?? "");
+  const h = doc.lines.findIndex((l) => l.text.trimStart().startsWith("#"));
+  const at = h < 0 ? 0 : h + 1;
+  if (at >= doc.lines.length) return addLine(text, clean);
+  doc.lines.splice(at, 0, { text: clean, eol: eolOf(doc) });
+  return renderMd(doc);
+}
+
+/** True when a read error says the file is over the 1 MiB limit of readTextFile. */
+export function isTooLargeError(e) {
+  return /exceeds|too large|1 MiB/i.test(String(e?.message ?? e ?? ""));
+}
 
 export const CHANGED = "file changed, try again";
 
@@ -143,8 +166,8 @@ export async function editMd(io, path, change, keeps = keepsEveryLine) {
     let before;
     try {
       before = await io.read(path);
-    } catch {
-      return { ok: false, message: "could not read the file" };
+    } catch (e) {
+      return { ok: false, message: isTooLargeError(e) ? "file too large" : "could not read the file" };
     }
     const after = change(before);
     if (after === null) return { ok: false, message: CHANGED };
