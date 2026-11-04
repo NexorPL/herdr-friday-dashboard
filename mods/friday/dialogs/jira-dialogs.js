@@ -24,6 +24,7 @@ export class LogTimeDialog {
     this.summary = p.summary ?? "";
     this.message = null;
     this.busy = false;
+    this.locked = false; // after a success or a maybe-saved POST: no second Log, ever
     this.duration = InputState.new({ value: "", placeholder: "30m, 1h 30m" });
     this.date = InputState.new({ value: ymd(new Date()) });
     this.comment = InputState.new({ value: "", placeholder: "Optional" });
@@ -40,7 +41,7 @@ export class LogTimeDialog {
   }
 
   submit(cx) {
-    if (this.busy) return;
+    if (this.busy || this.locked) return;
     this.busy = true;
     cx.spawn(async (cx) => {
       let done = false;
@@ -58,8 +59,10 @@ export class LogTimeDialog {
       } finally {
         this.busy = false;
       }
-      // A maybe-saved or failed write keeps the dialog open with its message; only a success closes it.
-      if (done) {
+      // A failed write keeps the dialog open with its message; a success closes it; a maybe-saved one
+      // stays open, locked, so the owner can check the issue before logging again.
+      if (done === true || done === "unknown") this.locked = true;
+      if (done === true) {
         setShared(SETTINGS_REV, Date.now());
         cx.timer.after(1200, () => closeOverlay((props() || {}).overlay));
       }
@@ -80,7 +83,7 @@ export class LogTimeDialog {
       .when(Boolean(this.message), (el) => el.child(note(t, this.message.text, this.message.state)))
       .child(h_flex().gap(8).justify_end()
         .child(button(t, "lt-cancel", "Cancel", () => closeOverlay((props() || {}).overlay)))
-        .child(button(t, "lt-log", this.busy ? "Logging…" : "Log", (_e, cx) => this.submit(cx), true)));
+        .child(button(t, "lt-log", this.busy ? "Logging…" : this.locked ? "Locked" : "Log", (_e, cx) => this.submit(cx), true)));
   }
 }
 

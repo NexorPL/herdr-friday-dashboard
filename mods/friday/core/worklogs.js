@@ -83,7 +83,7 @@ export const MAYBE_SAVED = "Jira may have saved this worklog. Check the issue be
  * The log-time dialog's Log button (R07, G24): validates, POSTs once and records the worklog in
  * worklogs.json. `post(key, { started, seconds, comment })` is core/jira.js postWorklog with its
  * deps bound; `saveRecord(record)` writes worklogs.json. Never retries a POST. Every message is
- * fixed text or comes from core/jira.js. Resolves true when Jira has the worklog.
+ * fixed text or comes from core/jira.js. Resolves true when Jira has the worklog, "unknown" when it may have (the dialog must not offer another Log), else false.
  */
 export async function submitLogTime({ form, key, now, offsetMin, post, saveRecord, say }) {
   const v = validateLogTime(form, { key, now, offsetMin });
@@ -94,7 +94,7 @@ export async function submitLogTime({ form, key, now, offsetMin, post, saveRecor
   } catch {
     r = { ok: false, unknown: true, message: "jira: request failed" };
   }
-  if (!r.ok) return say(r.unknown ? MAYBE_SAVED : r.message, "error"), false;
+  if (!r.ok) return say(r.unknown ? MAYBE_SAVED : r.message, "error"), r.unknown ? "unknown" : false;
   try {
     await saveRecord(worklogRecord({ jiraId: r.id, key, day: v.day, started: v.started, seconds: v.seconds, comment: v.comment, origin: "favorite", now }));
   } catch {

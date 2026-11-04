@@ -168,11 +168,13 @@ test("the Log button validates, posts once, records, and never retries a maybe-s
   assert.deepEqual([good.saved[0].jira_id, good.saved[0].origin, good.saved[0].issue_key], ["77", "favorite", "ABC-1"]);
   const invalid = await run1({ form: { duration: "0m" } });
   assert.deepEqual([invalid.done, invalid.calls.length, invalid.said[0][1]], [false, 0, "error"]);
+  assert.equal((await run1({ post: async () => ({ ok: false, status: 400, message: "jira: HTTP 400" }) })).done, false);
   const rejected = await run1({ post: async () => ({ ok: false, status: 401, message: "jira: token rejected" }) });
   assert.deepEqual(rejected.said, [["jira: token rejected", "error"]]);
   assert.equal(rejected.saved.length, 0);
   const lost = await run1({ post: async () => ({ ok: false, unknown: true, message: "jira: timed out after 15 s" }) });
   assert.deepEqual(lost.said, [[MAYBE_SAVED, "error"]]);
+  assert.equal(lost.done, "unknown", "the dialog locks itself after a maybe-saved POST");
   assert.equal(lost.saved.length, 0);
   const thrown = await run1({ post: async () => { throw new Error("TOKEN"); } });
   assert.equal(JSON.stringify(thrown.said).includes("TOKEN"), false);
