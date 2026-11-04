@@ -32,8 +32,8 @@ test("priority headings are judged on the raw line, so items that mention # stil
 });
 
 test("todo and note rows", () => {
-  assert.deepEqual(todoRows("# T\n- [ ] a\r\n- [x] b\nplain\n"), [{ line: 1, text: "- [ ] a", count: 1, rank: 0, done: false, body: "a" }, { line: 2, text: "- [x] b", count: 1, rank: 0, done: true, body: "b" }]);
-  assert.deepEqual(todoRows("- [ ] a\n- [ ] a\n").map((r) => [r.count, r.rank]), [[2, 0], [2, 1]]);
+  assert.deepEqual(todoRows("# T\n- [ ] a\r\n- [x] b\nplain\n"), [{ line: 1, text: "- [ ] a", count: 1, above: null, done: false, body: "a" }, { line: 2, text: "- [x] b", count: 1, above: null, done: true, body: "b" }]);
+  assert.deepEqual(todoRows("# T\n- [ ] a\n- [ ] a\n").map((r) => [r.count, r.above]), [[2, ["# T"]], [2, ["# T", "- [ ] a"]]]);
   assert.deepEqual(noteRows("#1 idea\n## H\n"), [{ line: 0, text: "#1 idea" }]);
   assert.deepEqual(noteRows("# Notes\none\n\n  two \n"), [{ line: 1, text: "one" }, { line: 3, text: "two" }]);
   assert.deepEqual(todoRows(null), []);

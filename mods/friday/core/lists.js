@@ -2,24 +2,23 @@
 // rows, flips one todo checkbox and adds one line; nothing else in a file is ever touched.
 import { jiraKeys } from "./jira.js";
 import { ymd, hhmm } from "./format.js";
-import { addLine, checkboxOf, cleanLine, editMd, onlyToggled, parseMd, quickNote, toggleCheckbox } from "./mdfile.js";
+import { HEADING, addLine, checkboxOf, cleanLine, editMd, onlyToggled, parseMd, quickNote, toggleCheckbox } from "./mdfile.js";
 
 /**
  * The checkbox lines of todos.md in file order: { line (index), text (the raw line, which identifies
- * it when toggling), count (how many lines in the file read exactly so), rank (which of them this
- * is, from 0), done, body }.
+ * it when toggling), count (how many lines in the file read exactly so), above (for a duplicate:
+ * the text of every line above it, else null), done, body }.
  */
 export function todoRows(text) {
   const lines = parseMd(text ?? "").lines;
   return lines.flatMap((l, line) => {
     const b = checkboxOf(l.text);
     if (!b) return [];
-    const same = lines.flatMap((o, i) => (o.text === l.text ? [i] : []));
-    return [{ line, text: l.text, count: same.length, rank: same.indexOf(line), ...b }];
+    const count = lines.filter((o) => o.text === l.text).length;
+    // a duplicate remembers the lines above it: it is only toggled while they are unchanged
+    return [{ line, text: l.text, count, above: count > 1 ? lines.slice(0, line).map((o) => o.text) : null, ...b }];
   });
 }
-
-const HEADING = /^\s*#{1,6}(\s|$)/;
 
 /** The non-blank, non-heading lines of notes.md, newest first as the file has them: { line, text }. */
 export function noteRows(text) {

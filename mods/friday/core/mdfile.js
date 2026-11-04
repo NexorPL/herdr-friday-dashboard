@@ -79,7 +79,10 @@ export function isMissingError(e) {
   return /ENOENT|no such file|cannot find the (file|path)|os error [23]\b/i.test(String(e?.message ?? e ?? ""));
 }
 
-const BOX = /^(\s*[-*+]\s+\[)([ xX])(\])(?:\s+(.*))?$/;
+/** A Markdown heading: 1 to 6 hashes then a space or the end ("#idea" is a note, not a heading). */
+export const HEADING = /^\s*#{1,6}(\s|$)/;
+
+const BOX =/^(\s*[-*+]\s+\[)([ xX])(\])(?:\s+(.*))?$/;
 
 /** { done, body } for a Markdown checkbox line (`- [ ] text`, `- [x] text`), else null. */
 export function checkboxOf(text) {
@@ -90,17 +93,24 @@ export function checkboxOf(text) {
 /**
  * `text` with the checkbox line `target.text` (the raw line as the owner last saw it, state
  * included) flipped; only the one character between the brackets changes, the line keeps its
- * terminator. `target` is { text, rank, count }: how many identical lines there were when the row
- * was drawn and which of them this is. A lone line is found wherever it moved; one of several only
- * at `hint` (its old index) and only if the number of copies is unchanged. Null when nothing is
- * certain (R10: "file changed, try again").
+ * terminator. `target` is { text, count, above }: how many identical lines there were when the row
+ * was drawn and, for a duplicate, the lines above it. A lone line is found wherever it moved. One
+ * of several is toggled only at `hint` (its old index) and only if every line above it is
+ * unchanged, so lines added or sections swapped above it can never point at the wrong copy; edits
+ * below it do not matter. Null when nothing is certain (R10: "file changed, try again").
  */
 export function toggleCheckbox(text, target, hint = 0) {
   const doc = parseMd(text ?? "");
-  const hits = doc.lines.flatMap((l, i) => (l.text === target.text ? [i] : []));
   const count = target.count ?? 1;
   let at = -1;
-  if (hits.length === count) at = count === 1 ? hits[0] : hits[target.rank ?? 0] === hint ? hint : -1;
+  if (count === 1) {
+    const hits = doc.lines.flatMap((l, i) => (l.text === target.text ? [i] : []));
+    if (hits.length === 1) at = hits[0];
+  } else if (
+    doc.lines[hint]?.text === target.text &&
+    Array.isArray(target.above) && target.above.length === hint &&
+    target.above.every((t, i) => doc.lines[i].text === t)
+  ) at = hint;
   if (at < 0 || !checkboxOf(doc.lines[at].text)) return null;
   const t = doc.lines[at].text;
   const k = BOX.exec(t)[1].length;
@@ -138,7 +148,7 @@ export function quickNote(text, line) {
   const clean = cleanLine(line);
   if (clean === null) throw new Error("not a single line");
   const doc = parseMd(text ?? "");
-  const h = doc.lines.findIndex((l) => l.text.trimStart().startsWith("#"));
+  const h = doc.lines.findIndex((l) => HEADING.test(l.text));
   const at = h < 0 ? 0 : h + 1;
   if (at >= doc.lines.length) return addLine(text, clean);
   doc.lines.splice(at, 0, { text: clean, eol: eolOf(doc) });

@@ -1,6 +1,7 @@
 // Toggling a checkbox and a quick note (Phase 5, R10).
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { todoRows } from "../mods/friday/core/lists.js";
 import { toggleCheckbox, onlyToggled, checkboxOf, quickNote, editMd, isTooLargeError, CHANGED } from "../mods/friday/core/mdfile.js";
 
 const BOM = "﻿";
@@ -42,8 +43,7 @@ test("a unique line moved by edits is still found; a missing one is refused", ()
 });
 
 const WH = "## Work\n- [ ] email\n## Home\n- [ ] email\n";
-const HOME = row("- [ ] email", 1, 2); // the Home copy, drawn from WH at line 3
-const WORK = row("- [ ] email", 0, 2);
+const [WORK, HOME] = todoRows(WH); // the rows as the widget draws them (Home is line 3)
 
 test("two equal lines under two headings: a copy is toggled only where it was drawn", () => {
   assert.equal(toggleCheckbox(WH, HOME, 3), "## Work\n- [ ] email\n## Home\n- [x] email\n");
@@ -58,6 +58,27 @@ test("lines added above two equal rows: never the wrong copy (the Work email sta
   assert.equal(toggleCheckbox(one, HOME, 3), null);
   assert.equal(toggleCheckbox(one, WORK, 1), null);
   assert.equal(toggleCheckbox(`x\ny\nz\n${WH}`, HOME, 3), null);
+});
+
+test("swapped sections with the same duplicate todo never toggle the wrong one", () => {
+  const swapped = "## Home\n- [ ] email\n## Work\n- [ ] email\n";
+  assert.equal(toggleCheckbox(swapped, HOME, 3), null);
+  assert.equal(toggleCheckbox(swapped, WORK, 1), null);
+  // three sections, two swapped above the third
+  const abc = "## A\n- [ ] email\n## B\n- [ ] email\n## C\n- [ ] email\n";
+  const c = todoRows(abc)[2];
+  assert.equal(toggleCheckbox("## B\n- [ ] email\n## A\n- [ ] email\n## C\n- [ ] email\n", c, c.line), null);
+  assert.equal(toggleCheckbox(abc, c, c.line), "## A\n- [ ] email\n## B\n- [ ] email\n## C\n- [x] email\n");
+});
+
+test("edits below a duplicate row do not stop it from toggling", () => {
+  assert.equal(toggleCheckbox(`${WH}- [ ] more\n`, HOME, 3), "## Work\n- [ ] email\n## Home\n- [x] email\n- [ ] more\n");
+  assert.equal(toggleCheckbox(`${WH}note below\n`, WORK, 1), "## Work\n- [x] email\n## Home\n- [ ] email\nnote below\n");
+});
+
+test("a notes.md that starts with #idea gets the new note above it", () => {
+  assert.equal(quickNote("#idea buy milk\nold\n", "new"), "new\n#idea buy milk\nold\n");
+  assert.equal(quickNote("# Notes\n#idea\n", "new"), "# Notes\nnew\n#idea\n");
 });
 
 test("the same through editMd's retry: a file changed underneath is refused, never mis-toggled", async () => {
