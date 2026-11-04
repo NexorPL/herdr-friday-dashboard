@@ -64,7 +64,13 @@ One Jira key per line in the data folder, in the owner's order; other text on a 
 
 ### `todos.md`, `notes.md` and `priorities.md` (in force since Phase 5)
 
-Plain Markdown in the data folder, owned by the owner (D26, D40); Friday and the owner both edit them. Friday reads the checkbox lines (`- [ ]` / `- [x]`) of `todos.md`, the lines of `notes.md` and the numbered or bulleted items of `priorities.md` (an item with a Jira key shows that issue's status). Its only writes are flipping the one character of a todo's checkbox and appending one line (`- [ ] text` to todos, `- text` to notes, the text to priorities), under R10: no line is ever deleted or rewritten, CRLF or LF per line, a BOM and a missing final newline are kept, and a target line that is gone gives "file changed, try again" (`core/mdfile.js`, `core/lists.js`). A done todo stays as `- [x]`. The widget ids `todos`, `notes` and `priorities` are in force too (see the widget ids above).
+Plain Markdown in the data folder, owned by the owner (D26, D40); Friday and the owner both edit them. Formats Friday reads and writes, kept as the first version had them (G29):
+
+- `todos.md`: checkbox lines (`- [ ]` / `- [x]`); other lines are kept and ignored. A new todo is `- [ ] text` at the end. Toggling changes the one character between the brackets of the exact line the owner saw; if that line is gone or ambiguous the toggle is refused ("file changed, try again"). A done todo stays as `- [x]`.
+- `notes.md`: every non-blank line that is not a heading is a note, newest first. A quick note is `- YYYY-MM-DD HH:MM text` (local time) inserted on top, right after the first heading.
+- `priorities.md`: numbered, bulleted or plain lines are all read as items (headings and blank lines are skipped); an item with a Jira key shows that issue's status. A new priority is added at the end in the file's own style: the next number after a numbered item (same `.` or `)`), the same bullet after a bullet, `- ` when there is no list yet; never bare text, so text starting with `#` cannot become a heading.
+
+All writes are under R10: no line is ever deleted or rewritten except that one checkbox character, CRLF or LF per line, a BOM and a missing final newline are kept (`core/mdfile.js`, `core/lists.js`). The widget ids `todos`, `notes` and `priorities` are in force too (see the widget ids above).
 
 - **Breaking:** a format change that makes existing files unreadable, or that rewrites content Friday did not change (R10).
 - **Required path:** always read the older format, and never reformat a file wholesale.

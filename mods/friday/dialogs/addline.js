@@ -29,7 +29,7 @@ export class AddLineDialog {
         this.message = { text: r.message, state: "error" };
         return cx.notify();
       }
-      setShared(SETTINGS_REV, Date.now()); // priorities keys reach Jira on the next poll
+      if (this.list === "priorities") setShared(SETTINGS_REV, Date.now()); // a new key reaches Jira on the next poll
       closeOverlay((props() || {}).overlay);
     });
   }

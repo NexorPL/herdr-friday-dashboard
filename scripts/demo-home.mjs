@@ -80,7 +80,7 @@ export function seed(dir, { today = new Date(), env = process.env } = {}) {
   writeFileSync(join(home, "data", "friday", "favorites.md"), "DEMO-3\nDEMO-99\n");
   // The owner's lists (R10); todos.md has CRLF lines, as a file edited on Windows would.
   writeFileSync(join(home, "data", "friday", "todos.md"), "- [ ] Call the bank\r\n- [x] Book the train\r\n- [ ] Review the contributor guide\r\n");
-  writeFileSync(join(home, "data", "friday", "notes.md"), "- Ask Sam about the release date\n- Idea: show the nightly build in the summary\n");
+  writeFileSync(join(home, "data", "friday", "notes.md"), "# Notes\n- 2026-11-04 09:10 Ask Sam about the release date\n- 2026-11-03 16:40 Idea: show the nightly build in the summary\n");
   writeFileSync(join(home, "data", "friday", "priorities.md"), "1. DEMO-12\n2. Prepare the demo\n3. DEMO-7\n");
 
   const now = today.getTime();

@@ -2,7 +2,7 @@
 // panes of it. The same mod also draws its own dialogs, with `props().dialog`.
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { props, theme, panes, spaces, focused, run, openOverlay, closeOverlay, nextCommand } from "herdr";
+import { props, theme, panes, spaces, focused, run, openOverlay, closeOverlay, nextCommand, watchFolder } from "herdr";
 import { Hub } from "./hub.js";
 import { WIDGETS, widgetById, DEFAULT_SPLITS } from "./core/widgets.js";
 import { planArrangement, splitTarget } from "./core/arrange.js";
@@ -14,9 +14,9 @@ import { renderMeetings, meetingRows, joinRow } from "./widgets/meetings.js";
 import { renderJira, jiraRows } from "./widgets/jira.js";
 import { renderPrs, prRows, openPr } from "./widgets/prs.js";
 import { renderFavorites, favoriteList, favoritesFile, logRow } from "./widgets/favorites.js";
-import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, listFile } from "./widgets/lists.js";
+import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, editFile } from "./widgets/lists.js";
 import { AddLineDialog } from "./dialogs/addline.js";
-import { readList } from "./store.js";
+import { readList, dataDir } from "./store.js";
 import { LogTimeDialog, AddFavoriteDialog } from "./dialogs/jira-dialogs.js";
 import { LogDayDialog } from "./dialogs/logday.js";
 import { SettingsDialog } from "./dialogs/settings.js";
@@ -54,12 +54,28 @@ export default class Friday extends View {
     this.message = null;
     this.list = { text: null, loaded: false, error: null }; // todos, notes, priorities: the file as last read
     this.busy = false; // a todo toggle is in flight
+    this.reading = false; // a read of the list file is in flight
+    this.readSeq = 0; // the newest read; an older result that arrives later is dropped
+    this.watching = false; // watchFolder works: the timer is only a slow fallback
     this.handle = cx.focus_handle();
     this.hub = new Hub(this.widget ? [this.widget.id] : []);
     this.hub.start(cx);
     if (this.widget && LISTS.includes(this.widget.id)) {
       this.reload(cx);
-      cx.timer.every(3000, (cx) => this.reload(cx));
+      let tick = 0;
+      cx.timer.every(3000, (cx) => { if (!this.watching || ++tick % 5 === 0) this.reload(cx); });
+      // herdr-app tells when something in the data folder changed; if the watch cannot start the timer above carries on alone.
+      cx.spawn(async (cx) => {
+        try {
+          for (;;) {
+            await watchFolder(dataDir());
+            this.watching = true;
+            if (await this.readInto()) cx.notify();
+          }
+        } catch {
+          this.watching = false;
+        }
+      });
     }
     if (this.widget && this.widget.id === "meetings") cx.timer.every(30_000, (cx) => cx.notify()); // rows go past
     if (this.widget && this.widget.id === "summary") {
@@ -79,15 +95,25 @@ export default class Friday extends View {
   }
 
   /** Reads this pane's list file (the files have no mtime, so a short poll catches edits made by hand). */
-  async readInto() {
-    const r = await readList(this.widget.id);
-    this.list = r.ok ? { text: r.text, loaded: true, error: null } : { ...this.list, loaded: true, error: "could not read the file" };
+  async readInto(force = false) {
+    if (!force && (this.reading || this.busy)) return false; // a tick during a read or a toggle waits for the next one
+    const seq = ++this.readSeq;
+    this.reading = true;
+    try {
+      const r = await readList(this.widget.id);
+      if (seq !== this.readSeq) return false; // a newer read started meanwhile; its result wins
+      const next = r.ok ? { text: r.text, loaded: true, error: null } : { ...this.list, loaded: true, error: r.error };
+      const changed = !this.list.loaded || next.text !== this.list.text || next.error !== this.list.error;
+      this.list = next;
+      return changed;
+    } finally {
+      if (seq === this.readSeq) this.reading = false;
+    }
   }
 
   reload(cx) {
     cx.spawn(async (cx) => {
-      await this.readInto();
-      cx.notify();
+      if (await this.readInto()) cx.notify();
     });
   }
 
@@ -156,8 +182,8 @@ export default class Friday extends View {
     cx.notify();
   }
 
-  openAddLine() {
-    openOverlay({ mod: "friday", kind: "dialog", width: 380, height: 210, props: { dialog: "addline", list: this.widget.id } });
+  openAddLine(list = this.widget.id) {
+    openOverlay({ mod: "friday", kind: "dialog", width: 380, height: 210, props: { dialog: "addline", list } });
   }
 
   listKey(e, cx) {
@@ -169,7 +195,8 @@ export default class Friday extends View {
     else if (id === "todos" && (e.key === "space" || e.key === " " || e.key === "enter")) toggleTodoRow(this, rows[this.cursor], cx);
     else if (id === "priorities" && e.key === "enter" && rows[this.cursor]?.url) openLink(rows[this.cursor].url);
     else if (e.key === "a") this.openAddLine();
-    else if (e.key === "e") openPath(listFile(id));
+    else if (e.key === "n") this.openAddLine("notes"); // a quick note from any list (G29)
+    else if (e.key === "e") editFile(this);
     else if (e.key === "r") { this.reload(cx); this.hub.refresh(cx); }
     else return;
     cx.notify();

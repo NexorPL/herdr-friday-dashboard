@@ -8,7 +8,13 @@ import { dataPath, LIST_FILES, toggleInTodos } from "../store.js";
 import { openLink, openPath } from "../open.js";
 import { button, note } from "../ui.js";
 
-export const listFile = (id) => dataPath(LIST_FILES[id]).replaceAll("\\", "/");
+const listFile = (id) => dataPath(LIST_FILES[id]).replaceAll("\\", "/");
+
+/** `e`: opens the file in the default program, once there is a file to open. */
+export function editFile(v) {
+  if (v.list.text === null) v.message = "no file yet, add a line first";
+  else openPath(listFile(v.widget.id));
+}
 
 export const todoList = (v) => todoRows(v.list.text);
 export const noteList = (v) => noteRows(v.list.text);
@@ -24,7 +30,7 @@ export function toggleTodoRow(v, row, cx) {
     try {
       const r = await toggleInTodos(row).catch(() => ({ ok: false, message: "could not write the file" }));
       if (!r.ok) v.message = r.message;
-      await v.readInto();
+      await v.readInto(true);
     } finally {
       v.busy = false;
       cx.notify();
@@ -44,7 +50,7 @@ function renderList(v, rows, draw) {
     .when(Boolean(v.message), (el) => el.child(note(t, v.message, "stale")))
     .child(h_flex().gap(8)
       .child(button(t, `${id}-add`, "Add (a)", () => v.openAddLine()))
-      .child(button(t, `${id}-edit`, "Edit file (e)", () => openPath(listFile(id)))))
+      .child(button(t, `${id}-edit`, "Edit file (e)", () => editFile(v))))
     .when(rows.length === 0 && !v.list.error, (el) => el.child(note(t, EMPTY[id])))
     .children(rows.map((r, i) => h_flex().id(`${id}-${i}`).gap(8).px(4).min_h(24).items_center().rounded(4).cursor_pointer()
       .when(i === v.cursor, (el) => el.bg(t.selected))
@@ -74,7 +80,8 @@ export function renderPriorities(v) {
     click: (_v, r) => { if (r.url) openLink(r.url); },
     row: (t, r) => h_flex().gap(8).flex_1()
       .child(div().w(20).flex_none().text_size(11).text_color(t.dim).child(String(r.n)))
-      .child(div().flex_1().truncate().text_size(12.5).child(r.summary))
+      .child(div().w(76).flex_none().truncate().text_size(12).text_color(t.accent).child(r.key ?? ""))
+      .child(div().flex_1().truncate().text_size(12.5).child(r.label))
       .child(div().w(84).flex_none().truncate().text_size(11).text_color(t.dim).child(r.status)),
   });
 }

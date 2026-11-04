@@ -9,7 +9,7 @@ import { secretFrom, withSecret } from "./core/secrets.js";
 import { addRecord, recordsOf } from "./core/worklogs.js";
 import { addFavorite } from "./core/favorites.js";
 import { applyFetch, markSeen, rowsFor } from "./core/prs.js";
-import { isMissingError } from "./core/mdfile.js";
+import { isMissingError, isTooLargeError } from "./core/mdfile.js";
 import { toggleTodo, addEntry } from "./core/lists.js";
 import { resolveSettings, setKey, expandHome } from "./core/settings.js";
 
@@ -127,12 +127,12 @@ export async function addToFavorites(key) {
   return addFavorite(mdIo, dataPath(FAVORITES_FILE), key);
 }
 
-/** One list file: { ok: true, text } (text is null when the file does not exist) or { ok: false } for a real read error. */
+/** One list file: { ok: true, text } (text is null when the file does not exist) or { ok: false, error } for a real read error ("file too large" or "could not read the file"). */
 export async function readList(kind) {
   try {
     return { ok: true, text: await mdIo.read(dataPath(LIST_FILES[kind])) };
-  } catch {
-    return { ok: false };
+  } catch (e) {
+    return { ok: false, error: isTooLargeError(e) ? "file too large" : "could not read the file" };
   }
 }
 
