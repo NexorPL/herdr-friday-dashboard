@@ -182,3 +182,14 @@ test("jira settings default to a scoped token every 5 minutes, and an unknown ki
   assert.deepEqual(resolveSettings({}).values.jira, { site: null, email: null, token_kind: "scoped", interval: "5m" });
   assert.deepEqual(resolveSettings({ jira: { token_kind: "pat", interval: "0s" } }).invalid, ["jira.token_kind", "jira.interval"]);
 });
+
+import { widgetById, sourcesFor, SOURCES } from "../mods/friday/core/widgets.js";
+import { httpsLink } from "../mods/friday/core/links.js";
+
+test("the Jira widget reads the jira source, and every row's link passes the https filter", () => {
+  assert.deepEqual(widgetById("jira").sources, ["jira"]);
+  assert.deepEqual(sourcesFor(["jira"]), ["jira"]);
+  assert.equal(SOURCES.jira.interval, 300);
+  const rows = myRows([parseIssue(issue("ABC-1", "High"), "https://acme.atlassian.net", true)]);
+  assert.equal(httpsLink(rows[0].url), rows[0].url);
+});

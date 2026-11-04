@@ -143,7 +143,7 @@ test("the opener gets the target as one argument, never through a shell", () => 
 });
 
 test("widget ids are the contract saved in the owner's tabs", () => {
-  assert.deepEqual(WIDGETS.map((w) => w.id), ["summary", "ledger", "meetings"]);
+  assert.deepEqual(WIDGETS.map((w) => w.id), ["summary", "ledger", "meetings", "jira"]);
   assert.equal(widgetById("nope"), null);
   assert.deepEqual(sourcesFor(["summary", "ledger", "ledger"]), ["ledger", "calendar"]);
   assert.deepEqual(sourcesFor(["ledger"]), ["ledger"]);
