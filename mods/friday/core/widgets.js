@@ -20,6 +20,8 @@ export const SOURCES = {
   // The calendar's lease holder also runs the alert loop, so it keeps the lease between fetches.
   // `interval` is the default of calendar.interval, which the hub reads from settings.
   calendar: { interval: 600, persistent: true },
+  // `interval` is the default of jira.interval.
+  jira: { interval: 300 },
 };
 
 /** The sources a set of widgets needs. */

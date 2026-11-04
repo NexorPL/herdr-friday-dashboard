@@ -152,3 +152,33 @@ test("every error path maps to a message without the token, the auth header or a
   }
   assert.equal(f.calls.length, 0);
 });
+
+import { testJiraSettings, saveToken } from "../mods/friday/core/jiraform.js";
+import { resolveSettings } from "../mods/friday/core/settings.js";
+
+test("Settings > Jira: Test says OK or an error, never the token", async () => {
+  const run = async (over) => {
+    const said = [];
+    await testJiraSettings({ cfg: { site: CFG.site, email: CFG.email, kind: "scoped" }, typed: "", readSecret: async () => TOKEN, test: async () => ({ ok: true, name: "Me" }), say: (t, s) => said.push([t, s]), ...over });
+    return said;
+  };
+  assert.deepEqual(await run({}), [["OK, signed in as Me.", "ok"]]);
+  assert.deepEqual(await run({ readSecret: async () => null }), [["No token yet.", "error"]]);
+  assert.deepEqual(await run({ typed: "typed", readSecret: async () => { throw new Error(TOKEN); } }), [["OK, signed in as Me.", "ok"]]);
+  assert.equal((await run({ cfg: { site: "", email: "x", kind: "scoped" } }))[0][1], "error");
+  assert.deepEqual(await run({ test: async () => ({ ok: false, status: 401, message: "jira: token rejected" }) }), [["jira: token rejected", "error"]]);
+  const thrown = await run({ test: async () => { throw new Error(`boom ${TOKEN}`); } });
+  assert.deepEqual(thrown, [["jira: the test failed", "error"]]);
+  const saved = [];
+  const say = (t, s) => saved.push([t, s]);
+  await saveToken({ typed: "", remove: false, saveSecret: async () => { throw new Error("no"); }, saved: () => saved.push("saved"), say });
+  await saveToken({ typed: TOKEN, remove: false, saveSecret: async () => { throw new Error(TOKEN); }, saved: () => saved.push("saved"), say });
+  await saveToken({ typed: TOKEN, remove: false, saveSecret: async () => {}, saved: () => saved.push("saved"), say });
+  assert.deepEqual(saved.map((x) => (Array.isArray(x) ? x[0] : x)), ["Paste the token first.", "Could not save secrets.json. Try again.", "Token saved (written to secrets.json).", "saved"]);
+  assert.equal(JSON.stringify(saved).includes(TOKEN), false);
+});
+
+test("jira settings default to a scoped token every 5 minutes, and an unknown kind falls back", () => {
+  assert.deepEqual(resolveSettings({}).values.jira, { site: null, email: null, token_kind: "scoped", interval: "5m" });
+  assert.deepEqual(resolveSettings({ jira: { token_kind: "pat", interval: "0s" } }).invalid, ["jira.token_kind", "jira.interval"]);
+});

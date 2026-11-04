@@ -80,6 +80,15 @@ export async function saveSecret(name, value) {
   await updateJson(io, dataPath(SECRETS_FILE), (raw) => withSecret(raw, name, value));
 }
 
+/** A text file of the data folder (favorites.md, priorities.md), or null when it does not exist. */
+export async function readDataText(name) {
+  try {
+    return await readTextFile(dataPath(name));
+  } catch {
+    return null;
+  }
+}
+
 /** The `sent` map of alerts.json (empty when the file is missing or unreadable). */
 export async function readAlertsSent() {
   try {

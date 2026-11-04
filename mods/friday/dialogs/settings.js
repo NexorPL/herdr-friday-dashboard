@@ -12,12 +12,14 @@ import { checkLedger } from "../core/ledgercheck.js";
 import { SettingsError } from "../core/settings.js";
 import { openPath } from "../open.js";
 import { calendarSection, CalendarState } from "./calendar-section.js";
+import { jiraSection, JiraState } from "./jira-section.js";
 import { button, note, stateColor } from "../ui.js";
 import { VERSION, CHECKED_AGAINST, REOPEN_COMMAND } from "../version.js";
 
 export class SettingsDialog {
   init(cx) {
     this.calendar = new CalendarState();
+    this.jira = new JiraState();
     this.settings = null;
     this.message = null;
     this.focus = (props() || {}).section ?? null;
@@ -89,6 +91,7 @@ export class SettingsDialog {
             .child(button(t, `set-suggest-${i}`, "Use", (_e, cx) => this.save(cx, p)))
             .child(div().flex_1().truncate().text_size(11).text_color(t.dim).child(p)))))
         .child(calendarSection(this, t))
+        .child(jiraSection(this, t))
         .child(this.section(t, "about", "About",
           div().text_color(t.muted).child(`Friday ${VERSION}, checked against herdr-app ${CHECKED_AGAINST}`),
           div().text_size(11).text_color(t.dim).child("Data folder"),
