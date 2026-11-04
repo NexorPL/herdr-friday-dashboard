@@ -24,6 +24,8 @@ export const SOURCES = {
   calendar: { interval: 600, persistent: true },
   // `interval` is the default of jira.interval.
   jira: { interval: 300 },
+  // `interval` is the default of azure_devops.interval.
+  ado: { interval: 120 },
 };
 
 /** The sources a set of widgets needs. */

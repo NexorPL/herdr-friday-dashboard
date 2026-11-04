@@ -9,7 +9,7 @@ const path = (key, dflt) => ({ key, kind: "path", default: dflt });
 
 /**
  * In the order Settings shows them. A `text` key with a null default is required by its widgets.
- * Each phase adds its own keys here (Phase 3: calendar.* and notifications.sound; Phase 2: jira.*).
+ * Each phase adds its own keys here (Phase 3: calendar.* and notifications.sound; Phase 2: jira.*; Phase 4: azure_devops.*).
  */
 export const SCHEMA = [
   path("ledger.path", "~/pr-reviews.md"),
@@ -20,6 +20,10 @@ export const SCHEMA = [
   { key: "jira.email", kind: "text", default: null },
   { key: "jira.token_kind", kind: "choice", options: ["scoped", "classic"], default: "scoped" },
   { key: "jira.interval", kind: "interval", default: "5m" },
+  { key: "azure_devops.organization", kind: "text", default: null },
+  { key: "azure_devops.project", kind: "text", default: null },
+  { key: "azure_devops.repo", kind: "text", default: null },
+  { key: "azure_devops.interval", kind: "interval", default: "2m" },
   { key: "notifications.sound", kind: "choice", options: ["none", "done", "blocked"], default: "done" },
 ];
 

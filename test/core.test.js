@@ -154,13 +154,15 @@ test("widget ids are the contract saved in the owner's tabs", () => {
 
 test("the setup checklist lists only built sources", () => {
   const rows = checklist({ status: undefined, now: T });
-  assert.deepEqual(rows.map((r) => [r.id, r.state, r.section]), [["ledger", "todo", "ledger"], ["calendar", "todo", "calendar"], ["jira", "todo", "jira"]]);
+  assert.deepEqual(rows.map((r) => [r.id, r.state, r.section]), [["ledger", "todo", "ledger"], ["calendar", "todo", "calendar"], ["jira", "todo", "jira"], ["ado", "todo", "ado"]]);
   const none = checklist({ status: { calendar: { ...succeeded(T), ok_at: null, not_set_up: true } }, now: T })[1];
   assert.deepEqual([none.state, none.detail], ["todo", "needs the iCal address"]);
   assert.deepEqual(checklist({ status: { jira: { ...succeeded(T), ok_at: null, not_set_up: true } }, now: T })[2].detail, "needs the site, e-mail and token");
   assert.equal(checklist({ status: { jira: succeeded(T) }, now: T })[2].state, "ok");
   assert.equal(checklist({ status: { calendar: succeeded(T) }, now: T })[1].state, "ok");
   assert.equal(checklist({ status: { ledger: succeeded(T) }, now: T })[0].state, "ok");
+  assert.deepEqual(checklist({ status: { ado: { ...succeeded(T), ok_at: null, not_set_up: true } }, now: T })[3].detail, "needs the organization, PAT and repo");
+  assert.equal(checklist({ status: { ado: succeeded(T) }, now: T })[3].state, "ok");
   const bad = checklist({ status: { ledger: failed(null, T, 15, { message: "ledger not found at x.md" }) }, now: T })[0];
   assert.deepEqual([bad.state, bad.detail], ["error", "ledger not found at x.md"]);
 });

@@ -87,3 +87,60 @@ test("every error path is built without the PAT, the URL or the organization", a
   assert.match(results[4].message, /not found/);
   assert.equal(FETCH_TIMEOUT_MS, 15000);
 });
+
+import { testAdoSettings, savePat } from "../mods/friday/core/adoform.js";
+
+function form(overrides = {}) {
+  const said = [];
+  let groups = null;
+  const args = {
+    cfg: { organization: "acme-org" },
+    typed: "",
+    readSecret: async () => PAT,
+    test: async () => ({ ok: true, repos: [{ id: "1", name: "b", project: "Q" }, { id: "2", name: "a", project: "P" }, { id: "3", name: "c", project: "P" }] }),
+    loaded: (g) => { groups = g; },
+    say: (text, state) => said.push([text, state]),
+    ...overrides,
+  };
+  return { args, said, groups: () => groups };
+}
+
+test("Test lists repositories, fills the picker grouped by project, and says OK", async () => {
+  const f = form();
+  await testAdoSettings(f.args);
+  assert.deepEqual(f.said, [["OK, 3 repositories in 2 projects.", "ok"]]);
+  assert.deepEqual(f.groups().map((g) => [g.project, g.repos.map((r) => r.name)]), [["P", ["a", "c"]], ["Q", ["b"]]]);
+});
+
+test("Test says what is missing, and its messages never hold the PAT", async () => {
+  for (const [over, re] of [
+    [{ cfg: { organization: "" } }, /organization/],
+    [{ readSecret: async () => null }, /No PAT/],
+    [{ test: async () => ({ ok: false, message: "ado: PAT rejected" }) }, /rejected/],
+    [{ test: async () => { throw new Error(PAT); } }, /test failed/],
+    [{ readSecret: async () => { throw new Error(PAT); } }, /test failed/],
+  ]) {
+    const f = form(over);
+    await testAdoSettings(f.args);
+    assert.equal(f.said.length, 1);
+    assert.match(f.said[0][0], re);
+    assert.equal(f.said[0][1], "error");
+    assert.equal(leaks(f.said), false);
+    assert.equal(f.groups(), null);
+  }
+});
+
+test("Save PAT and Remove write through saveSecret and say so without the PAT", async () => {
+  const said = [];
+  const wrote = [];
+  let saved = 0;
+  const base = { saveSecret: async (v) => { wrote.push(v); }, saved: () => saved++, say: (t, s) => said.push([t, s]) };
+  await savePat({ ...base, typed: PAT, remove: false });
+  await savePat({ ...base, typed: "", remove: true });
+  await savePat({ ...base, typed: "", remove: false });
+  await savePat({ ...base, typed: PAT, remove: false, saveSecret: async () => { throw new Error(PAT); } });
+  assert.deepEqual(wrote, [PAT, ""]);
+  assert.equal(saved, 2);
+  assert.deepEqual(said.map((s) => s[1]), ["ok", "ok", "error", "error"]);
+  assert.equal(leaks(said), false);
+});
