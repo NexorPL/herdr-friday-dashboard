@@ -192,6 +192,9 @@ test("the first pane arranges the default panes only when it is alone in its tab
   assert.deepEqual(planArrangement([{ pane: "p1", mod: null, tab: "t1" }], DEFAULT_SPLITS), [], "a lone terminal is not split");
   assert.deepEqual(planArrangement([{ pane: "p1", mod: "files", tab: "t1" }], DEFAULT_SPLITS), [], "nor another mod");
 
+  assert.deepEqual(planArrangement(alone, DEFAULT_SPLITS, true), [], "a layout block is not a pane: it never splits the shown tab");
+  assert.equal(planArrangement(alone, DEFAULT_SPLITS, false).length, 4);
+
   const all = [{ pane: "p1", mod: "friday" }, { pane: "p9", mod: null }];
   assert.equal(splitTarget({ pane: "p1" }, all), "p1");
   assert.equal(splitTarget({ pane: "p9" }, all), null, "the focused pane is a terminal");

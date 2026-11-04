@@ -16,7 +16,7 @@ herdr-app moves, resizes and splits the panes. There is no background process: t
 
 Scope, rules and decisions are in `.ai/specs/product-brief.md` (ids `D`, `R`, `N`; D34–D42 and R12 are the herdr-app ones). The design and the six-phase plan are in `.ai/specs/2026-11-02-friday-on-herdr-app.md`. The terminal plugin this replaces lives on, frozen, in `NexorPL/herdr-friday`; port its rules and fixtures, not its structure.
 
-Status: Phases 1 and 3 (the foundation and the review ledger; meetings and alerts) are built: the summary, ledger, meetings and Settings, the hub, and the tests. Phases 2, 4, 5 and 6 follow the spec.
+Status: Phases 1 to 5 are built: the summary, ledger, meetings and alerts, Jira, Azure DevOps, the todo, note and priority lists, Settings, the hub, and the tests. Tokens (Phase 6) moved to Later (see the spec, Phasing). `layouts/friday.json` is a second way to show the widgets, next to the Friday tab.
 
 ## Task routing
 
@@ -26,6 +26,7 @@ Status: Phases 1 and 3 (the foundation and the review ledger; meetings and alert
 | Widgets, dialogs, the pane header | `mods/friday/main.js`, `mods/friday/widgets/`, `mods/friday/dialogs/` | Widgets stay thin over `core/`; colors from `theme()`; never block a render on network or disk; a failing source shows its error state, never breaks the pane. |
 | Polling, leases, alerts | `mods/friday/hub.js`, `mods/friday/core/lease.js`, `mods/friday/core/due.js` | One fetch per source across all panes; alerts at most once per occurrence and offset (R11); alerts more than 60 s late are dropped. |
 | Settings, secrets, data folder | `mods/friday/store.js`, `mods/friday/core/settings.js`, `mods/friday/core/datafile.js` | Data folder `${appHome()}/data/friday/`. Secrets only in `secrets.json` (R12): never in `shared()`, `localStorage`, logs, errors, toasts, fixtures or screenshots. Writes go through `writeTextFile` with the expected snapshot. |
+| The mission control layout | `layouts/friday.json`, `mods/friday/core/arrange.js`, `test/layout.test.js` | A copy of the mod in a layout block is not a pane: its props carry `"block": true`, which turns off the first-pane arrangement and the + menu. Mirror `main.json` from the installed herdr-app for everything that is not Friday; no theme or font of its own; use only widget ids from `core/widgets.js`. The Friday tab stays: it keeps the alerts alive across layout switches. |
 | Pure logic and tests | `mods/friday/core/`, `test/` | `core/` never imports `herdr`; every rule there has a `node --test` test; fixtures are anonymized, with no company keys, links or names (D32). |
 | Jira | TODO: `mods/friday/core/jira.js` (Phase 2); first-version spec, Outbound calls | Token scoped to `read:jira-work` and `write:jira-work`; the only writes are worklogs and their comments, each confirmed first (D10, D25, D27). |
 | Review ledger | `mods/friday/core/ledger.js`; `herdr-friday/src/ledger.rs` | Read only; never recount its minutes (R08); logging a day skips rows already logged (R09). |

@@ -49,6 +49,7 @@ export default class Friday extends View {
       return;
     }
     this.widget = widgetById(p.widget);
+    this.block = p.block === true; // a layout block (layouts/friday.json), not a pane in a tab
     this.cursor = -1;
     this.showPast = false; // meetings: h shows the past ones (R04)
     this.message = null;
@@ -85,7 +86,7 @@ export default class Friday extends View {
     if (this.widget && this.widget.id === "meetings") cx.timer.every(30_000, (cx) => cx.notify()); // rows go past
     if (this.widget && this.widget.id === "summary") {
       cx.timer.every(1000, (cx) => cx.notify()); // R05: the clock updates every second
-      this.arrange(cx, 0);
+      if (!this.block) this.arrange(cx, 0);
     }
     cx.spawn(async (cx) => {
       for (;;) {
@@ -136,7 +137,7 @@ export default class Friday extends View {
       cx.timer.after(300, (cx) => this.arrange(cx, attempt + 1));
       return;
     }
-    for (const split of planArrangement(inTab, DEFAULT_SPLITS)) run("pane.split", split);
+    for (const split of planArrangement(inTab, DEFAULT_SPLITS, this.block)) run("pane.split", split);
   }
 
   openSettings(section) {
@@ -144,6 +145,7 @@ export default class Friday extends View {
   }
 
   openAdd() {
+    if (this.block) return; // the + splits a pane of a tab; a block has none
     const pane = splitTarget(focused(), panes());
     openOverlay({ mod: "friday", kind: "popup", width: 190, height: 90 + WIDGETS.length * 28, props: { dialog: "add", pane } });
   }
@@ -255,7 +257,7 @@ export default class Friday extends View {
       .child(div().flex_1().truncate().pl(6).text_size(11).text_color(state === "error" ? t.ansi1 : t.dim).child(source ? stateText(state, rec) : ""))
       .child(iconButton(t, "fr-refresh", "↻", (_e, cx) => { this.hub.refresh(cx); if (LISTS.includes(w?.id)) this.reload(cx); }))
       .child(iconButton(t, "fr-settings", "⚙", () => this.openSettings(null)))
-      .child(iconButton(t, "fr-add", "+", () => this.openAdd()));
+      .when(!this.block, (el) => el.child(iconButton(t, "fr-add", "+", () => this.openAdd())));
   }
 
   render(cx) {

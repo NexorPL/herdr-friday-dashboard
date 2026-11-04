@@ -4,10 +4,12 @@
  * The first pane of a new Friday tab arranges the default panes, and only when it is the only pane
  * in its tab, so an arranged tab is never rearranged (spec, Edge Cases). Returns the `pane.split`
  * arguments to run, in order; empty when nothing should happen. Every split names the pane, so
- * nothing depends on which pane has the keyboard.
+ * nothing depends on which pane has the keyboard. A copy in a layout block (`props().block`) is not
+ * a pane of any tab: panes() does not list it and focused() is the owner's terminal, so it never
+ * arranges, even when the shown tab happens to hold a single Friday pane.
  */
-export function planArrangement(tabPanes, splits) {
-  if (tabPanes.length !== 1 || tabPanes[0].mod !== "friday") return [];
+export function planArrangement(tabPanes, splits, block = false) {
+  if (block || tabPanes.length !== 1 || tabPanes[0].mod !== "friday") return [];
   const pane = tabPanes[0].pane;
   return splits.map(([widget, direction]) => ({ pane, direction, mod: "friday", props: { widget } }));
 }

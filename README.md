@@ -33,6 +33,19 @@ The first pane arranges the default panes when it is the only pane in its tab. A
 
 `mod.open:friday` opens Friday's launcher, which selects the Friday tab (switching space if needed) or creates it when none exists. Bind it in `keys.json`, for example `"global": { "ctrl-alt-f": "mod.open:friday" }`. On Windows keyboards ctrl+alt is AltGr, so in some layouts the combination types a character instead of reaching herdr-app; pick another chord there. herdr-app's docs advise against ctrl+alt chords in general, so if the binding misbehaves, use another chord.
 
+## Mission control layout
+
+`layouts/friday.json` is a whole window in one screen: herdr-app's spaces and agents on the left, the tab bar and the active tab (terminals and agents) in the middle, and a resizable column of Friday on the right: summary, meetings, pull requests, and Jira, priorities and todos. It has no theme or font of its own, so your settings decide the look. It is an addition to the Friday tab, not a replacement.
+
+```sh
+# from the repository root
+cp layouts/friday.json ~/.config/herdr-app/layouts/
+herdr-app do layout.switch --name friday    # or ctrl-shift-l to cycle
+herdr-app do layout.switch --name main      # back to the default layout
+```
+
+Keep the Friday tab open anyway. Another layout starts its mods fresh, while mod panes in a tab stay alive, so the tab keeps the meeting alerts running whichever layout is shown.
+
 ## Data
 
 Friday keeps its files in `${appHome()}/data/friday/` (by default `~/.config/herdr-app/data/friday/`). Settings and secrets are plain text there, protected only by your user account's file permissions.
