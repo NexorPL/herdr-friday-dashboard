@@ -50,7 +50,7 @@ The owner's `keys.json` binds a key to `mod.open:friday`. It works through the `
 
 ### `favorites.md` (in force since Phase 2)
 
-One Jira key per line in the data folder, in the owner's order; other text on a line is kept and ignored. Friday only adds a key, as a line of its own, under R10: no line is ever deleted or rewritten, and CRLF or LF per line, a BOM and a missing final newline are kept (`core/mdfile.js`). `priorities.md` is also read by the priorities widget (see below).
+One Jira key per line in the data folder, in the owner's order; other text on a line is kept and ignored. Friday adds a key as a line of its own, or swaps a key with its neighbour among the rows (Shift+Up and Shift+Down in the favorites widget, D45; a key counts at its first line) by moving one line, under R10: no line is ever deleted or rewritten, a result that is not exactly that move is refused, and CRLF or LF per line, a BOM and a missing final newline are kept (`core/mdfile.js`). `priorities.md` is also read by the priorities widget (see below).
 
 - **Breaking:** a format change that makes existing files unreadable, or that rewrites content Friday did not change.
 - **Required path:** always read the older format, and never reformat a file wholesale.

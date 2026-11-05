@@ -9,6 +9,7 @@ import { repoKey, prToast } from "./core/prs.js";
 import { dueAlerts, alertText } from "./core/alerts.js";
 import { runCalendar, runJira, runAdo, offsetNow } from "./net.js";
 import { keySet, jiraKeys } from "./core/jira.js";
+import { favoriteKeys } from "./core/favorites.js";
 import { parseBoard, boardKeys } from "./core/board.js";
 import { localDay } from "./core/meetings.js";
 import { parseInterval, parseDurations } from "./core/durations.js";
@@ -236,8 +237,9 @@ export class Hub {
     const kept = old?.for === key ? old.data : {};
     const r = await runJira(cx, { site: j.site, email: j.email, kind: j.token_kind, token }, { keys: keySet(fav, pri, board), cloudId: kept.cloud_id ?? null, accountId: kept.account_id ?? null });
     if (!r.ok) return { ...failed(prev, now, interval, { status: r.status ?? null, message: r.message }), for: key };
-    // The widgets need to know which keys are favorites and which are priorities, in file order.
-    const data = { ...r.value, favorites: jiraKeys(fav).slice(0, 200), priorities: jiraKeys(pri).slice(0, 200) };
+    // The widgets need to know which keys are favorites and which are priorities, in file order. The favorites are read again
+    // now, so a move made while the fetch was running is not undone (D45); one key per line, as the widget's moves count them.
+    const data = { ...r.value, favorites: favoriteKeys((await readDataText("favorites.md")) ?? fav).slice(0, 200), priorities: jiraKeys(pri).slice(0, 200) };
     if (!old || old.for !== key || JSON.stringify(old.data) !== JSON.stringify(data)) setShared(JIRA, { data, for: key, ok_at: now });
     return { ...succeeded(now), for: key };
   }
@@ -314,6 +316,12 @@ export class Hub {
   }
 
   /** Jira issues as shared, only while they belong to the configured site and e-mail. */
+  /** The favorites in a new order, at once and without a Jira call (the poll keeps the issues). */
+  setFavorites(keys) {
+    const old = shared(JIRA);
+    if (old) setShared(JIRA, { ...old, data: { ...old.data, favorites: keys } });
+  }
+
   jira() {
     const m = shared(JIRA);
     return m && m.for === this.key("jira") && !this.status().jira?.not_set_up ? m : null;

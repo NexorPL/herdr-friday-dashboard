@@ -13,7 +13,7 @@ import { renderLedger, flatRows } from "./widgets/ledger.js";
 import { renderMeetings, meetingRows, joinRow } from "./widgets/meetings.js";
 import { renderJira, jiraRows } from "./widgets/jira.js";
 import { renderPrs, prRows, openPr } from "./widgets/prs.js";
-import { renderFavorites, favoriteList, favoritesFile, logRow } from "./widgets/favorites.js";
+import { renderFavorites, favoriteList, favoritesFile, logRow, moveFavoriteRow } from "./widgets/favorites.js";
 import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, editFile } from "./widgets/lists.js";
 import { renderBoard, boardKey, boardOf } from "./widgets/board.js";
 import { importCandidates } from "./core/board.js";
@@ -204,7 +204,8 @@ export default class Friday extends View {
   favoritesKey(e, cx) {
     this.message = null;
     const rows = favoriteList(this);
-    if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
+    if ((e.key === "down" || e.key === "up") && e.modifiers?.shift === true) moveFavoriteRow(this, rows, e.key, cx); // Shift first: e.key is "down" with Shift held too
+    else if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
     else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
     else if (e.key === "enter") logRow(this, rows[this.cursor]);
     else if (e.key === "o" && rows[this.cursor]?.url) openLink(rows[this.cursor].url);

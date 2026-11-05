@@ -7,7 +7,7 @@ import { parseJson, updateJson } from "./core/datafile.js";
 import { claimAlerts as claimInto } from "./core/alerts.js";
 import { secretFrom, withSecret } from "./core/secrets.js";
 import { addRecord, recordsOf } from "./core/worklogs.js";
-import { addFavorite } from "./core/favorites.js";
+import { addFavorite, moveFavorite } from "./core/favorites.js";
 import { applyFetch, markSeen, rowsFor } from "./core/prs.js";
 import { isMissingError, isTooLargeError } from "./core/mdfile.js";
 import { toggleTodo, addEntry } from "./core/lists.js";
@@ -126,6 +126,12 @@ const mdIo = {
 export async function addToFavorites(key) {
   await ensureDataDir();
   return addFavorite(mdIo, dataPath(FAVORITES_FILE), key);
+}
+
+/** Moves a favorite up or down in favorites.md. { ok, changed } or { ok: false, message }. */
+export async function moveInFavorites(key, dir) {
+  await ensureDataDir();
+  return moveFavorite(mdIo, dataPath(FAVORITES_FILE), key, dir);
 }
 
 /** One list file: { ok: true, text } (text is null when the file does not exist) or { ok: false, error } for a real read error ("file too large" or "could not read the file"). */

@@ -4,8 +4,8 @@
 import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { theme } from "herdr";
-import { favoriteRows } from "../core/favorites.js";
-import { dataPath, FAVORITES_FILE } from "../store.js";
+import { favoriteRows, favoriteKeys } from "../core/favorites.js";
+import { dataPath, FAVORITES_FILE, moveInFavorites, readDataText } from "../store.js";
 import { openLink, openPath } from "../open.js";
 import { button, note } from "../ui.js";
 
@@ -26,6 +26,31 @@ export function logRow(v, row) {
   }
   v.message = null;
   v.openLogTime(row);
+}
+
+/** Shift+Up or Shift+Down: moves the cursor's favorite; one write at a time, the cursor follows the key. */
+export function moveFavoriteRow(v, rows, dir, cx) {
+  const row = rows[v.cursor];
+  const edge = dir === "up" ? v.cursor <= 0 : v.cursor >= rows.length - 1;
+  if (!row || edge || v.busy) return;
+  v.busy = true;
+  cx.spawn(async (cx) => {
+    try {
+      const r = await moveInFavorites(row.key, dir).catch(() => ({ ok: false, message: "could not write the file" }));
+      if (!r.ok) v.message = r.message;
+      else {
+        const text = await readDataText(FAVORITES_FILE);
+        if (text !== null) { // a failed read keeps the rows as they are until the next poll
+          const keys = favoriteKeys(text);
+          v.hub.setFavorites(keys);
+          if (keys.includes(row.key)) v.cursor = keys.indexOf(row.key);
+        }
+      }
+    } finally {
+      v.busy = false;
+      cx.notify();
+    }
+  });
 }
 
 export function renderFavorites(v) {
