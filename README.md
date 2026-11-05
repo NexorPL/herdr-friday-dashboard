@@ -71,6 +71,17 @@ On the board, press a card and release it over another card to place it above th
 
 The notes widget has an input that is always there: type a note and press Enter to add it with a timestamp. A failed write keeps the text and shows the message. While the input has the keyboard, typed letters go to it and not to the widget keys; `a` or `n` moves the keyboard to the input, and Esc moves it back. A layout block that restarts loses a typed draft.
 
+### Panel layout
+
+`layouts/friday-panel.json` is herdr-app's main layout with a `Friday ▾` button before the tabs. The terminal keeps the whole width until you check a widget in the button's menu; the widget then opens in a panel on the right, which you can resize. Check more and they stack one under the other, in the menu's order; uncheck the last one and the panel closes. The arrows on a checked widget move it past its checked neighbour, and the order is kept in your copy of the layout, so copying the file again resets it. The menu stays open until you click beside it or press Esc. A widget stays as it was while it is unchecked. Files and Changes work as in the main layout and can be open next to it.
+
+```sh
+cp layouts/friday-panel.json ~/.config/herdr-app/layouts/
+herdr-app do layout.switch --name friday-panel    # or pick it in Settings
+```
+
+The button stands before the tabs because herdr-app's tab bar is read-only and draws the window buttons at its right edge. On macOS with the sidebar hidden, the window buttons cover it.
+
 Keep the Friday tab open anyway. Another layout starts its mods fresh, while mod panes in a tab stay alive, so the tab keeps the meeting alerts running whichever layout is shown.
 
 ## Data

@@ -2,13 +2,14 @@
 // panes of it. The same mod also draws its own dialogs, with `props().dialog`.
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, InputState } from "gpui-base";
-import { props, theme, panes, spaces, focused, run, openOverlay, closeOverlay, nextCommand, watchFolder, window } from "herdr";
+import { props, theme, panes, spaces, focused, run, layout, openOverlay, closeOverlay, nextCommand, watchFolder, window } from "herdr";
 import { Hub } from "./hub.js";
 import { startSaving, restoreTab } from "./arrangement.js";
 import { WIDGETS, widgetById, DEFAULT_SPLITS } from "./core/widgets.js";
 import { planArrangement, splitTarget, arrangesByDefault } from "./core/arrange.js";
 import { restoreWidget } from "./core/arrangement.js";
 import { planLaunch } from "./core/launch.js";
+import { shownWidgets } from "./core/panel.js";
 import { stateText } from "./core/format.js";
 import { renderSummary } from "./widgets/summary.js";
 import { renderLedger, flatRows } from "./widgets/ledger.js";
@@ -25,10 +26,11 @@ import { LogTimeDialog, AddFavoriteDialog } from "./dialogs/jira-dialogs.js";
 import { LogDayDialog } from "./dialogs/logday.js";
 import { SettingsDialog } from "./dialogs/settings.js";
 import { AddMenu } from "./dialogs/add.js";
+import { PanelMenu } from "./dialogs/panel.js";
 import { iconButton, note } from "./ui.js";
 import { openLink, openPath } from "./open.js";
 
-const DIALOGS = { settings: SettingsDialog, add: AddMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog, addline: AddLineDialog };
+const DIALOGS = { settings: SettingsDialog, add: AddMenu, panel: PanelMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog, addline: AddLineDialog };
 const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, jira: renderJira, favorites: renderFavorites, prs: renderPrs, todos: renderTodos, notes: renderNotes, priorities: renderPriorities, board: renderBoard };
 const LISTS = ["todos", "notes", "priorities", "board"];
 
@@ -36,6 +38,11 @@ export default class Friday extends View {
   init(_props, cx) {
     // props() is null while `herdr-app check` loads the mod.
     const p = props() || {};
+    // The Friday button in layouts/friday-panel.json: no widget, so no hub and no timers.
+    if (p.panelMenu) {
+      this.panelMenu = true;
+      return;
+    }
     // `mod.open:friday` opens this mod with only props().overlay: act as the launcher and vanish (no hub, no timers).
     if (p.overlay && !p.dialog && !p.widget) {
       this.launcher = true;
@@ -49,7 +56,7 @@ export default class Friday extends View {
       return;
     }
     this.widget = widgetById(p.widget);
-    this.block = p.block === true; // a layout block (layouts/friday.json), not a pane in a tab
+    this.block = p.block === true; // a layout block (layouts/friday*.json), not a pane in a tab
     this.cursor = -1;
     this.sel = null; // board: the selected { column, card }
     this.drag = null; // board: the card held by the mouse, { card, over }
@@ -323,7 +330,20 @@ export default class Friday extends View {
       .when(!this.block, (el) => el.child(iconButton(t, "fr-add", "+", () => this.openAdd())));
   }
 
+  /** The button before the tab bar, drawn like its Files and Changes buttons. Its press must not drag the window. */
+  renderPanelMenu(t) {
+    const on = shownWidgets(layout()).length > 0;
+    return h_flex().size_full().pl(10).items_center().bg(t.chrome).border_b(1).border_color(t.border)
+      .child(h_flex().id("fr-panel-menu").h(26).px(8).flex_none().items_center().rounded(6).text_size(12)
+        .bg(on ? t.selected : t.chrome).text_color(on ? t.foreground : t.muted)
+        .hover((s) => s.bg(t.hover))
+        .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
+        .on_click(() => openOverlay({ mod: "friday", kind: "popup", width: 220, height: 44 + WIDGETS.length * 32, props: { dialog: "panel" } }))
+        .child("Friday ▾"));
+  }
+
   render(cx) {
+    if (this.panelMenu) return this.renderPanelMenu(theme());
     if (this.launcher) return div();
     if (this.dialog) return this.dialog.render(cx);
     const t = theme();

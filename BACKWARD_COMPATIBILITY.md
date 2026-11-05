@@ -105,6 +105,13 @@ A layout file the owner copies to `~/.config/herdr-app/layouts/` and switches to
 - **Breaking:** renaming the file, dropping `"block": true` (the block would arrange and split like a pane of a tab), or using a widget id that does not exist.
 - **Required path:** keep the name; add or move blocks freely, and note it in the release notes.
 
+### `layouts/friday-panel.json` (in force since the Friday button)
+
+A layout file the owner copies to `~/.config/herdr-app/layouts/` and switches to by name (D47). herdr-app saves the panel's size and which of its blocks are shown under that name, and the column `friday-panel` holds one block per widget of `core/widgets.js`, named `friday-panel-<widget id>`, which is what the button's menu shows, hides and reorders. A reorder goes through `layout.set`, which rewrites the owner's copy of the file with the owner's order, so that copy can differ from the repository's and an update must not assume the order. Every Friday block carries `"block": true`, and the file has no theme or font of its own; everything that is not Friday mirrors `layouts/friday.json`.
+
+- **Breaking:** renaming the file or the `friday-panel` nodes, dropping `"block": true`, or using a widget id that does not exist.
+- **Required path:** keep the names; a new widget gets its block here in the order of `core/widgets.js`, which `test/layout.test.js` checks.
+
 ## Planned
 
 ### Data-folder files and their `version` (Phase 1 onward)
