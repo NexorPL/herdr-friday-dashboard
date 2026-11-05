@@ -54,6 +54,7 @@ export default class Friday extends View {
     this.block = p.block === true; // a layout block (layouts/friday.json), not a pane in a tab
     this.cursor = -1;
     this.sel = null; // board: the selected { column, card }
+    this.drag = null; // board: the card held by the mouse, { card, over }
     this.showPast = false; // meetings: h shows the past ones (R04)
     this.message = null;
     this.offer = []; // board: the lines the import would add

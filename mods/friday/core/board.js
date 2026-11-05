@@ -259,6 +259,23 @@ export function movePlace(board, selection, dir) {
 }
 
 /**
+ * Where a card dragged by mouse lands with the pointer `over` { column, card (or null on the column's
+ * free space or header) }: above that card, or `defaultPlace`. Null over the card itself or over nothing.
+ */
+export function dropPlace(card, over) {
+  if (!over?.column) return null;
+  if (!over.card) return defaultPlace(over.column);
+  return over.card.line === card.line ? null : { column: over.column, before: over.card };
+}
+
+/** The gap of `cards` (those drawn in `column`) that shows the mark for `place`: 0 above the first, `cards.length` below the last, else -1. */
+export function dropSlot(place, column, cards) {
+  if (place?.column !== column) return -1;
+  if (place.before) return cards.findIndex((c) => c.line === place.before.line);
+  return place.at === "top" ? 0 : cards.length;
+}
+
+/**
  * The selection on the card that was just moved by `moveCard(.., card, place)`, found again in the
  * re-read `board` (same lines, in the column it went to); with identical cards it takes the one at
  * the place the card was sent to (top, end, or where the card it went before was). Null if gone.

@@ -55,6 +55,8 @@ herdr-app do layout.switch --name friday-board    # or ctrl-shift-l to cycle thr
 
 A layout block starts fresh on a switch: the board's selection and a half-typed draft are lost, and the file is read again. Cards are in `board.md` and are not affected.
 
+On the board, press a card and release it over another card to place it above that card, or over a column's header or free space to send it to the end of the column (the top in Done). A line shows where it will land. Leaving the board ends the drag and the card stays where it was. Shift+arrows move the selected card too.
+
 Keep the Friday tab open anyway. Another layout starts its mods fresh, while mod panes in a tab stay alive, so the tab keeps the meeting alerts running whichever layout is shown.
 
 ## Data

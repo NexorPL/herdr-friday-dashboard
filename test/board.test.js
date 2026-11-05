@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COLUMNS, IMPORT_MARKER, parseBoard, defaultPlace, moveCard, addCard, addToBoardFile, moveInBoardFile, isColumnHeading, nextSelection, selectCard, cardsWithoutStatus, movePlace, selectMoved, boardKeys, importCandidates, importLists, importInBoardFile, cardFace } from "../mods/friday/core/board.js";
+import { COLUMNS, IMPORT_MARKER, parseBoard, defaultPlace, moveCard, addCard, addToBoardFile, moveInBoardFile, isColumnHeading, nextSelection, selectCard, cardsWithoutStatus, movePlace, selectMoved, boardKeys, importCandidates, importLists, importInBoardFile, cardFace, dropPlace, dropSlot } from "../mods/friday/core/board.js";
 import { onlyMoved, keepsEveryLine, CHANGED } from "../mods/friday/core/mdfile.js";
 
 const BOM = "﻿";
@@ -397,4 +397,29 @@ test("cardFace leaves the key to its pill and falls back to Jira's summary", () 
   assert.deepEqual(face("DEMO-12", "Ship it"), { title: "Ship it", detail: null });
   assert.deepEqual(face("DEMO-12"), { title: "DEMO-12", detail: null });
   assert.deepEqual(face("see DEMO-12 today"), { title: "see DEMO-12 today", detail: null });
+});
+
+test("dropPlace: above the card under the pointer, the default place on a column, nothing on the card itself", () => {
+  const [a, b] = parseBoard("## TODO\n- a\n- b\n").columns[0].cards;
+  assert.deepEqual(dropPlace(a, { column: "todo", card: b }), { column: "todo", before: b });
+  assert.equal(dropPlace(a, { column: "todo", card: a }), null);
+  assert.deepEqual(dropPlace(a, { column: "progress", card: null }), { column: "progress", at: "end" });
+  assert.deepEqual(dropPlace(a, { column: "done", card: null }), { column: "done", at: "top" });
+  assert.equal(dropPlace(a, null), null);
+});
+
+test("a dropped card lands where dropPlace says, through moveCard", () => {
+  const text = "## TODO\n- a\n- b\n- c\n## Done\n- d\n";
+  const todo = parseBoard(text).columns[0].cards;
+  assert.equal(moveCard(text, todo[2], dropPlace(todo[2], { column: "todo", card: todo[0] })).text, "## TODO\n- c\n- a\n- b\n## Done\n- d\n");
+  assert.equal(moveCard(text, todo[0], dropPlace(todo[0], { column: "done", card: null })).text, "## TODO\n- b\n- c\n## Done\n- a\n- d\n");
+});
+
+test("dropSlot says which gap of a column's cards shows the mark", () => {
+  const cards = parseBoard("## TODO\n- a\n- b\n").columns[0].cards;
+  assert.equal(dropSlot({ column: "todo", before: cards[1] }, "todo", cards), 1);
+  assert.equal(dropSlot({ column: "todo", at: "top" }, "todo", cards), 0);
+  assert.equal(dropSlot({ column: "todo", at: "end" }, "todo", cards), 2);
+  assert.equal(dropSlot({ column: "done", at: "top" }, "todo", cards), -1);
+  assert.equal(dropSlot(null, "todo", cards), -1);
 });
