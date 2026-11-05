@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseMd, renderMd, addLine, cleanLine, keepsEveryLine, editMd, isMissingError, CHANGED } from "../mods/friday/core/mdfile.js";
+import { parseMd, renderMd, addLine, cleanLine, keepsEveryLine, editMd, isMissingError, moveLines, onlyMoved, CHANGED } from "../mods/friday/core/mdfile.js";
 
 const BOM = "﻿";
 
@@ -123,4 +123,72 @@ test("an unchanged result writes nothing", async () => {
   const f = disk("a\n");
   assert.deepEqual(await editMd(f.io, "x.md", (t) => t), { ok: true, changed: false });
   assert.deepEqual(f.writes, []);
+});
+
+test("moving lines keeps every line's text and terminator", () => {
+  // a b c d: c goes to the top
+  const r = moveLines("a\nb\nc\nd\n", { from: 2, to: 0 });
+  assert.equal(r.text, "c\na\nb\nd\n");
+  assert.deepEqual(r.plan, { from: 2, count: 1, at: 0, added: [] });
+  assert.ok(onlyMoved("a\nb\nc\nd\n", r.text, r.plan));
+  // a block of two moves down; mixed CRLF and LF stay per line
+  const m = moveLines("a\r\nb\nc\r\nd\n", { from: 0, count: 2, to: 2 });
+  assert.equal(m.text, "c\r\nd\na\r\nb\n");
+  assert.ok(onlyMoved("a\r\nb\nc\r\nd\n", m.text, m.plan));
+  // a move that changes nothing gives the same text
+  assert.equal(moveLines("a\nb\n", { from: 1, to: 1 }).text, "a\nb\n");
+  // the BOM stays
+  assert.equal(moveLines(`${BOM}a\nb\n`, { from: 1, to: 0 }).text, `${BOM}b\na\n`);
+  // bounds outside the file are refused
+  for (const bad of [{ from: 2, to: 0 }, { from: -1, to: 0 }, { from: 0, to: 2 }, { from: 0, count: 0, to: 0 }, { from: 0, count: 3, to: 0 }, { from: 0, to: 0.5 }]) {
+    assert.equal(moveLines("a\nb\n", bad), null, JSON.stringify(bad));
+  }
+});
+
+test("moving around a missing final newline follows the last-line rule", () => {
+  // the open last line moves away: it takes the terminator and the new last line has none
+  const up = moveLines("a\nb\nc", { from: 2, to: 0 });
+  assert.equal(up.text, "c\na\nb");
+  assert.ok(onlyMoved("a\nb\nc", up.text, up.plan));
+  // a line moves behind the open last line
+  const down = moveLines("a\nb\r\nc", { from: 0, to: 2 });
+  assert.equal(down.text, "b\r\nc\na");
+  assert.ok(onlyMoved("a\nb\r\nc", down.text, down.plan));
+  // the old last line takes the file's first terminator
+  const crlf = moveLines("a\r\nb\r\nc", { from: 2, to: 0 });
+  assert.equal(crlf.text, "c\r\na\r\nb");
+  assert.ok(onlyMoved("a\r\nb\r\nc", crlf.text, crlf.plan));
+  // a file with a final newline keeps it
+  assert.equal(moveLines("a\nb\nc\n", { from: 2, to: 0 }).text, "c\na\nb\n");
+});
+
+test("moving can add headings at the end first", () => {
+  const r = moveLines("## TODO\n- a\n", { from: 1, to: 2, added: ["## Done"] });
+  assert.equal(r.text, "## TODO\n## Done\n- a\n");
+  assert.ok(onlyMoved("## TODO\n- a\n", r.text, r.plan));
+  // no final newline: the heading takes it, the moved card ends the file
+  const open = moveLines("## TODO\n- a", { from: 1, to: 2, added: ["## Done"] });
+  assert.equal(open.text, "## TODO\n## Done\n- a");
+  assert.ok(onlyMoved("## TODO\n- a", open.text, open.plan));
+  // a heading is one line
+  assert.equal(moveLines("a\n", { from: 0, to: 0, added: ["x\ny"] }), null);
+});
+
+test("onlyMoved refuses everything that is not exactly the planned move", () => {
+  const before = "## TODO\r\n- a\r\n- b\n- c\r\n";
+  const { text, plan } = moveLines(before, { from: 1, to: 3 });
+  assert.ok(onlyMoved(before, text, plan));
+  assert.equal(onlyMoved(before, text.replace("- b", "- B"), plan), false, "a changed line");
+  assert.equal(onlyMoved(before, text.replace("- c\r\n", "- c\n"), plan), false, "a normalized terminator");
+  assert.equal(onlyMoved(before, `${BOM}${text}`, plan), false, "a BOM that appeared");
+  assert.equal(onlyMoved(before, "- b\r\n## TODO\r\n- a\r\n- c\r\n", plan), false, "an outside line reordered");
+  assert.equal(onlyMoved(before, text + "- extra\r\n", plan), false, "an added line");
+  assert.equal(onlyMoved(before, "## TODO\r\n- a\r\n- b\n", plan), false, "a deleted line");
+  assert.equal(onlyMoved(before, text, { ...plan, at: 0 }), false, "a plan that points elsewhere");
+  assert.equal(onlyMoved(before, text, null), false);
+  // a final newline that appeared or went away
+  assert.equal(onlyMoved("a\nb", "b\na\n", { from: 0, count: 1, at: 1 }), false);
+  assert.equal(onlyMoved("a\nb\n", "b\na", { from: 0, count: 1, at: 1 }), false);
+  // an added heading the plan did not announce
+  assert.equal(onlyMoved("a\n", "a\n## Done\n", { from: 0, count: 1, at: 0 }), false);
 });

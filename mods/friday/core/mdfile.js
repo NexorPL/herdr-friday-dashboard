@@ -155,6 +155,60 @@ export function quickNote(text, line) {
   return renderMd(doc);
 }
 
+/**
+ * `text` with `count` lines from index `from` moved so they start at index `to` of the remaining
+ * lines (R13: a move changes no line's text and deletes none). `added` are heading lines appended
+ * at the end first, so `to` may point behind them. The moved lines keep their own terminators.
+ * The one exception is the last-line rule: with no final newline, the line that is last afterwards
+ * has none and the old last line, wherever it went, takes the file's terminator. Returns
+ * { text, plan } (plan is what `onlyMoved` needs) or null for bounds that are not in the file.
+ */
+export function moveLines(text, { from, count = 1, to, added = [] }) {
+  const doc = parseMd(text ?? "");
+  const n = doc.lines.length;
+  if (!Number.isInteger(from) || !Number.isInteger(count) || !Number.isInteger(to) || count < 1 || from < 0 || from + count > n) return null;
+  if (added.some((h) => cleanLine(h) !== h)) return null;
+  const eol = eolOf(doc);
+  const open = doc.lines[n - 1].eol === "";
+  const block = doc.lines.slice(from, from + count);
+  const rest = [...doc.lines.slice(0, from), ...doc.lines.slice(from + count), ...added.map((h) => ({ text: h, eol }))];
+  if (to < 0 || to > rest.length) return null;
+  const lines = [...rest.slice(0, to), ...block, ...rest.slice(to)];
+  if (open) {
+    for (const l of lines) if (l.eol === "") l.eol = eol;
+    lines[lines.length - 1].eol = "";
+  }
+  return { text: renderMd({ bom: doc.bom, lines }), plan: { from, count, at: to, added: [...added] } };
+}
+
+/**
+ * True when `after` is `before` with exactly the plan's lines moved (and the plan's headings added
+ * at the end): everything else matches line by line, text and terminator alike, and so does the BOM.
+ * The last-line rule of `moveLines` is the only terminator that may differ.
+ */
+export function onlyMoved(before, after, plan) {
+  const x = parseMd(before ?? "");
+  const y = parseMd(after ?? "");
+  const { from, count, at, added = [] } = plan ?? {};
+  if (![from, count, at].every(Number.isInteger) || count < 1 || from < 0 || at < 0) return false;
+  if (x.bom !== y.bom || from + count > x.lines.length || at + count > y.lines.length) return false;
+  if (x.lines.length + added.length !== y.lines.length) return false;
+  const lastX = x.lines.at(-1);
+  const lastY = y.lines.at(-1);
+  const open = lastX.eol === "";
+  if ((lastY.eol === "") !== open) return false;
+  const eol = eolOf(x);
+  const same = (a, b) => a.text === b.text && (a.eol === b.eol || (open && ((a === lastX && b.eol === eol) || (b === lastY && b.eol === "" && a.eol !== ""))));
+  const rest = [...x.lines.slice(0, from), ...x.lines.slice(from + count)];
+  const others = [...y.lines.slice(0, at), ...y.lines.slice(at + count)];
+  return x.lines.slice(from, from + count).every((a, i) => same(a, y.lines[at + i]))
+    && rest.every((a, i) => same(a, others[i]))
+    && added.every((h, i) => {
+      const l = others[rest.length + i];
+      return l.text === h && (l.eol === eol || (open && l === lastY && l.eol === ""));
+    });
+}
+
 /** True when a read error says the file is over the 1 MiB limit of readTextFile. */
 export function isTooLargeError(e) {
   return /exceeds|too large|1 MiB/i.test(String(e?.message ?? e ?? ""));

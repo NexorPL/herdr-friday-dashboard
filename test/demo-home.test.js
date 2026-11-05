@@ -5,6 +5,7 @@ import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 import { seed, datedLedger, DEMO_JIRA, DEMO_ADO } from "../scripts/demo-home.mjs";
 import { parseLedger } from "../mods/friday/core/ledger.js";
+import { parseBoard } from "../mods/friday/core/board.js";
 
 const fixture = readFileSync(new URL("./fixtures/ledger.md", import.meta.url), "utf8");
 
@@ -29,6 +30,9 @@ test("the demo home has the mod, fixture settings and a seeded cache, and no sec
   const settings = JSON.parse(readFileSync(join(dir, "data/friday/settings.json"), "utf8"));
   assert.deepEqual(settings, { version: 1, ledger: { path: ledgerPath }, jira: DEMO_JIRA, azure_devops: DEMO_ADO });
   assert.equal(readFileSync(join(dir, "data/friday/favorites.md"), "utf8"), "DEMO-3\nDEMO-99\n");
+  const board = parseBoard(readFileSync(join(dir, "data/friday/board.md"), "utf8"));
+  assert.deepEqual(board.columns.map((c) => c.cards.length), [2, 1, 1, 1]);
+  assert.equal(board.outside, 0);
   const cached = JSON.parse(readFileSync(join(dir, "shared.json"), "utf8"));
   assert.ok(cached["friday.jira"].data.issues.length > 0);
   assert.equal(cached["friday.jira"].for, `jira:${DEMO_JIRA.site}|${DEMO_JIRA.email}|scoped`);

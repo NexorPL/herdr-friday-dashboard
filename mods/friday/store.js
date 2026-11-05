@@ -11,6 +11,7 @@ import { addFavorite } from "./core/favorites.js";
 import { applyFetch, markSeen, rowsFor } from "./core/prs.js";
 import { isMissingError, isTooLargeError } from "./core/mdfile.js";
 import { toggleTodo, addEntry } from "./core/lists.js";
+import { addToBoardFile, moveInBoardFile } from "./core/board.js";
 import { resolveSettings, setKey, expandHome } from "./core/settings.js";
 
 export const SETTINGS_FILE = "settings.json";
@@ -20,7 +21,7 @@ export const WORKLOGS_FILE = "worklogs.json";
 export const FAVORITES_FILE = "favorites.md";
 export const PRS_FILE = "prs.json";
 /** The owner's lists by widget id (D26, D40). */
-export const LIST_FILES = { todos: "todos.md", notes: "notes.md", priorities: "priorities.md" };
+export const LIST_FILES = { todos: "todos.md", notes: "notes.md", priorities: "priorities.md", board: "board.md" };
 
 export const dataDir = () => `${appHome()}/data/friday`;
 export const dataPath = (name) => `${dataDir()}/${name}`;
@@ -146,6 +147,18 @@ export async function toggleInTodos(row) {
 export async function addToList(kind, text) {
   await ensureDataDir();
   return addEntry(mdIo, dataPath(LIST_FILES[kind]), kind, text);
+}
+
+/** Adds a card at the end of a column of board.md (the file is created on the first add). { ok, changed } or { ok: false, message }. */
+export async function addToBoard(column, text) {
+  await ensureDataDir();
+  return addToBoardFile(mdIo, dataPath(LIST_FILES.board), column, text);
+}
+
+/** Moves a card of board.md (a card as drawn) to `place`. { ok, changed } or { ok: false, message }. */
+export async function moveOnBoard(card, place) {
+  await ensureDataDir();
+  return moveInBoardFile(mdIo, dataPath(LIST_FILES.board), card, place);
 }
 
 /** The `sent` map of alerts.json (empty when the file is missing or unreadable). */

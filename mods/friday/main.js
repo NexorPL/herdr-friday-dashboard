@@ -15,6 +15,7 @@ import { renderJira, jiraRows } from "./widgets/jira.js";
 import { renderPrs, prRows, openPr } from "./widgets/prs.js";
 import { renderFavorites, favoriteList, favoritesFile, logRow } from "./widgets/favorites.js";
 import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, editFile } from "./widgets/lists.js";
+import { renderBoard, boardKey } from "./widgets/board.js";
 import { AddLineDialog } from "./dialogs/addline.js";
 import { readList, dataDir, LIST_FILES } from "./store.js";
 import { LogTimeDialog, AddFavoriteDialog } from "./dialogs/jira-dialogs.js";
@@ -25,8 +26,8 @@ import { iconButton, note } from "./ui.js";
 import { openLink, openPath } from "./open.js";
 
 const DIALOGS = { settings: SettingsDialog, add: AddMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog, addline: AddLineDialog };
-const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, jira: renderJira, favorites: renderFavorites, prs: renderPrs, todos: renderTodos, notes: renderNotes, priorities: renderPriorities };
-const LISTS = ["todos", "notes", "priorities"];
+const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, jira: renderJira, favorites: renderFavorites, prs: renderPrs, todos: renderTodos, notes: renderNotes, priorities: renderPriorities, board: renderBoard };
+const LISTS = ["todos", "notes", "priorities", "board"];
 
 export default class Friday extends View {
   init(_props, cx) {
@@ -51,6 +52,7 @@ export default class Friday extends View {
     this.widget = widgetById(p.widget);
     this.block = p.block === true; // a layout block (layouts/friday.json), not a pane in a tab
     this.cursor = -1;
+    this.sel = null; // board: the selected { column, card }
     this.showPast = false; // meetings: h shows the past ones (R04)
     this.message = null;
     this.list = { text: null, loaded: false, error: null }; // todos, notes, priorities: the file as last read
@@ -151,6 +153,7 @@ export default class Friday extends View {
   }
 
   key(e, cx) {
+    if (this.widget && this.widget.id === "board") return boardKey(this, e, cx);
     if (this.widget && LISTS.includes(this.widget.id)) return this.listKey(e, cx);
     if (this.widget && this.widget.id === "meetings") return this.meetingsKey(e, cx);
     if (this.widget && this.widget.id === "jira") return this.jiraKey(e, cx);
@@ -194,8 +197,8 @@ export default class Friday extends View {
     cx.notify();
   }
 
-  openAddLine(list = this.widget.id) {
-    openOverlay({ mod: "friday", kind: "dialog", width: 380, height: 210, props: { dialog: "addline", list } });
+  openAddLine(list = this.widget.id, column = undefined) {
+    openOverlay({ mod: "friday", kind: "dialog", width: 380, height: 210, props: { dialog: "addline", list, column } });
   }
 
   listKey(e, cx) {

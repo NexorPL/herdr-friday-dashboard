@@ -75,6 +75,21 @@ All writes are under R10: no line is ever deleted or rewritten except that one c
 - **Breaking:** a format change that makes existing files unreadable, or that rewrites content Friday did not change (R10).
 - **Required path:** always read the older format, and never reformat a file wholesale.
 
+### The `board` widget and `board.md` (in force since the workboard, Phase 1)
+
+The widget id `board` is in force (see the widget ids above). `board.md` is plain Markdown in the data folder, owned by the owner (D43); Friday and the owner both edit it.
+
+- A column is a heading whose text is exactly `TODO`, `Priority`, `In progress` or `Done`, ignoring case and heading level; the first such heading counts.
+- A card is a non-blank, unindented line under a column heading that is not a heading or a lone `<!-- -->` comment. An indented line right below a card belongs to it and moves with it. A card's first Jira key links it to the issue; its column is unrelated to Jira's status.
+- Lines above the first column heading and under any other heading are never moved or changed and are not drawn; the widget says how many there are.
+- `<!-- friday: lists imported -->` records that the import was done or dismissed (the import itself is a later story).
+- A new file is created on the first add with all four headings; a missing heading is added at the end of the file when a card first needs it.
+
+Friday writes `board.md` only to add `- text` after the last card of a column, to move a card's lines, or to add a missing heading, under R10 and R13: no line is deleted or rewritten, CRLF or LF per line and a BOM are kept, and a result that is not exactly that change is refused ("refused: it would change other lines"). When the file has no final newline, the line that ends it has none and the line that moved away from the end takes the file's terminator (`core/mdfile.js`, `core/board.js`).
+
+- **Breaking:** renaming the `board` id or `board.md`, changing the column names or the card rules so existing files read differently, or any write that changes a line's text or deletes one.
+- **Required path:** always read the older format, and never reformat a file wholesale.
+
 ## Planned
 
 ### Data-folder files and their `version` (Phase 1 onward)

@@ -25,7 +25,7 @@ export function noteRows(text) {
   return parseMd(text ?? "").lines.flatMap((l, line) => (l.text.trim() === "" || HEADING.test(l.text) ? [] : [{ line, text: l.text.trim() }]));
 }
 
-const MARKER = /^\s*(?:[-*+]|\d+[.)])\s+/;
+export const MARKER = /^\s*(?:[-*+]|\d+[.)])\s+/;
 
 /**
  * The items of priorities.md in order (headings and blank lines are skipped). { n, text (the line
