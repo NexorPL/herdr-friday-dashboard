@@ -13,6 +13,14 @@ test("no Friday pane: create the tab", () => {
     ["tab.new", { name: "Friday", mod: "friday", props: { widget: "summary" } }],
   ]);
 });
+test("no Friday pane and a saved arrangement: the new tab starts from its first widget, and restores", () => {
+  assert.deepEqual(planLaunch([pane("t1")], spaces, "s1", "t1", "ledger"), [
+    ["tab.new", { name: "Friday", mod: "friday", props: { widget: "ledger", restore: true } }],
+  ]);
+});
+test("a saved arrangement changes nothing when a Friday tab exists", () => {
+  assert.deepEqual(planLaunch([pane("t2", "friday")], spaces, "s1", "t1", "ledger"), [["tab.select", { id: "t2" }]]);
+});
 test("one in the current space: select it", () => {
   assert.deepEqual(planLaunch([pane("t2", "friday")], spaces, "s1"), [["tab.select", { id: "t2" }]]);
 });

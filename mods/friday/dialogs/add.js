@@ -4,6 +4,7 @@ import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { theme, props, run, closeOverlay } from "herdr";
 import { WIDGETS } from "../core/widgets.js";
+import { addedPane } from "../core/arrange.js";
 
 export class AddMenu {
   init() {
@@ -14,7 +15,7 @@ export class AddMenu {
     const p = props() || {};
     closeOverlay(p.overlay);
     if (!p.pane) return;
-    run("pane.split", { pane: p.pane, direction: this.direction, mod: "friday", props: { widget: widget.id } });
+    run("pane.split", { pane: p.pane, direction: this.direction, mod: "friday", props: addedPane(widget.id) });
   }
 
   render() {

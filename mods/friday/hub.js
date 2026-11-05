@@ -39,7 +39,7 @@ const STUCK_MS = 120_000;
 /** The newest days kept in shared(), so the value stays far below 1 MiB. */
 const MAX_DAYS = 120;
 
-const sleep = (cx, ms) => new Promise((resolve) => cx.timer.after(ms, () => resolve()));
+export const sleep = (cx, ms) => new Promise((resolve) => cx.timer.after(ms, () => resolve()));
 
 /** FNV-1a over the text: only to tell whether the ledger changed. */
 function hash(text) {
@@ -145,15 +145,20 @@ export class Hub {
     this.holds[source] = false;
     if (!due && !persistent) return;
 
-    const action = leaseAction(shared(leaseKey(source)), this.copy, now);
-    if (action === "skip") return;
-    if (action !== "hold") setShared(leaseKey(source), leaseValue(this.copy, now));
-    if (action === "claim") {
-      await sleep(cx, CONFIRM_AFTER);
-      if (!leaseIsMine(shared(leaseKey(source)), this.copy, Date.now())) return;
-    }
+    if (!(await this.lease(cx, source))) return;
     this.holds[source] = true;
     if (due) await this.fetch(cx, source, key);
+  }
+
+  /** True when this copy holds the lease of `name`: it claims a free one, then confirms; a lost race costs nothing. */
+  async lease(cx, name) {
+    const now = Date.now();
+    const action = leaseAction(shared(leaseKey(name)), this.copy, now);
+    if (action === "skip") return false;
+    if (action !== "hold") setShared(leaseKey(name), leaseValue(this.copy, now));
+    if (action !== "claim") return true;
+    await sleep(cx, CONFIRM_AFTER);
+    return leaseIsMine(shared(leaseKey(name)), this.copy, Date.now());
   }
 
   async fetch(cx, source, key) {

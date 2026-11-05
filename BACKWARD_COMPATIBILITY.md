@@ -90,6 +90,14 @@ Friday writes `board.md` only to add `- text` after the last card of a column, t
 - **Breaking:** renaming the `board` id or `board.md`, changing the column names or the card rules so existing files read differently, or any write that changes a line's text or deletes one.
 - **Required path:** always read the older format, and never reformat a file wholesale.
 
+### `arrangement.json` and the `restore` prop (in force since D46)
+
+`{ "version": 1, "root": <node> }` in the data folder, where a node is `{ "widget": "<id>", "weight": n }` or `{ "split": "row" | "column", "weight": n, "children": [<node>, ...] }` (at least two children; the root has no weight). It holds only widgets, splits and sizes, and is replaced with compare-and-swap when the arrangement changes (`core/arrangement.js`). A missing, broken or newer file gives the default arrangement, and a newer file is left alone. `mod.open:friday` opens the new tab's pane with `{ "widget": "<first widget>", "restore": true }`; herdr-core keeps those props with the pane, so a build must keep treating `restore` as "rebuild only when alone in the tab". Panes added beside others, by a rebuild or the + menu, carry `"arranged": true`, which herdr-core keeps too, and such a pane never runs the default arrangement.
+
+- **Breaking:** renaming a field or changing what `weight` means, which brings back the default arrangement once for the owner; making a pane with `restore` rearrange a tab that is already arranged; letting a pane with `arranged` run the default arrangement.
+- **Required path:** read the older shape, raise `version` and migrate forward on read.
+- **Not a contract:** the core's `docs.json` is an internal file of herdr-core, only ever read. If its format changes, the result is the default arrangement and the last saved file stays.
+
 ### `layouts/friday-board.json` (in force since the workboard, Phase 2)
 
 A layout file the owner copies to `~/.config/herdr-app/layouts/` and switches to by name (D44). Its name `friday-board` is what the owner's `layout.switch` calls and key bindings use, and herdr-app saves the sizes the owner drags under that name. Every Friday block carries `"block": true`, uses only widget ids of `core/widgets.js`, and the file has no theme or font of its own; everything that is not Friday mirrors `layouts/friday.json`.

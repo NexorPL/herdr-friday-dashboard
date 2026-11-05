@@ -4,8 +4,10 @@ import { View, div } from "gpui-kit";
 import { h_flex, v_flex, InputState } from "gpui-base";
 import { props, theme, panes, spaces, focused, run, openOverlay, closeOverlay, nextCommand, watchFolder, window } from "herdr";
 import { Hub } from "./hub.js";
+import { startSaving, restoreTab } from "./arrangement.js";
 import { WIDGETS, widgetById, DEFAULT_SPLITS } from "./core/widgets.js";
-import { planArrangement, splitTarget } from "./core/arrange.js";
+import { planArrangement, splitTarget, arrangesByDefault } from "./core/arrange.js";
+import { restoreWidget } from "./core/arrangement.js";
 import { planLaunch } from "./core/launch.js";
 import { stateText } from "./core/format.js";
 import { renderSummary } from "./widgets/summary.js";
@@ -18,7 +20,7 @@ import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, not
 import { renderBoard, boardKey, boardOf } from "./widgets/board.js";
 import { importCandidates } from "./core/board.js";
 import { AddLineDialog } from "./dialogs/addline.js";
-import { readList, dataDir, LIST_FILES } from "./store.js";
+import { readList, readDataText, dataDir, ARRANGEMENT_FILE, LIST_FILES } from "./store.js";
 import { LogTimeDialog, AddFavoriteDialog } from "./dialogs/jira-dialogs.js";
 import { LogDayDialog } from "./dialogs/logday.js";
 import { SettingsDialog } from "./dialogs/settings.js";
@@ -37,11 +39,7 @@ export default class Friday extends View {
     // `mod.open:friday` opens this mod with only props().overlay: act as the launcher and vanish (no hub, no timers).
     if (p.overlay && !p.dialog && !p.widget) {
       this.launcher = true;
-      closeOverlay(p.overlay); // first, so a failing run() leaves no overlay behind
-      const at = focused();
-      for (const [cmd, args] of planLaunch(panes(), spaces(), at?.space, at?.tab)) {
-        try { run(cmd, args); } catch { break; }
-      }
+      this.launch(cx, p.overlay);
       return;
     }
     const Dialog = DIALOGS[p.dialog];
@@ -73,6 +71,9 @@ export default class Friday extends View {
     }
     this.hub = new Hub(this.widget ? [this.widget.id] : []);
     this.hub.start(cx);
+    const restore = !this.block && p.restore === true; // the launcher's new tab: rebuild the saved arrangement, not the default one
+    if (!this.block) startSaving(cx, this.hub);
+    if (restore) restoreTab(cx, p.widget);
     if (this.widget && LISTS.includes(this.widget.id)) {
       this.reload(cx);
       let tick = 0;
@@ -99,7 +100,7 @@ export default class Friday extends View {
     if (this.widget && this.widget.id === "meetings") cx.timer.every(30_000, (cx) => cx.notify()); // rows go past
     if (this.widget && this.widget.id === "summary") {
       cx.timer.every(1000, (cx) => cx.notify()); // R05: the clock updates every second
-      if (!this.block) this.arrange(cx, 0);
+      if (arrangesByDefault(p)) this.arrange(cx, 0);
     }
     cx.spawn(async (cx) => {
       for (;;) {
@@ -109,6 +110,33 @@ export default class Friday extends View {
         else if (command === "settings" && this.widget && this.widget.id === "summary") this.openSettings(null);
         else if (command === "add" && this.widget && this.widget.id === "summary") this.openAdd();
         cx.notify();
+      }
+    });
+  }
+
+  /**
+   * `mod.open:friday`. Selecting a tab closes the overlay first, so a failing run() leaves none behind.
+   * Creating one reads the saved arrangement, and closing a copy cancels its tasks, so there the
+   * commands go before the close.
+   */
+  launch(cx, overlay) {
+    const at = focused();
+    const plan = (restore) => planLaunch(panes(), spaces(), at?.space, at?.tab, restore);
+    const runAll = (steps) => {
+      for (const [cmd, args] of steps) {
+        try { run(cmd, args); } catch { break; }
+      }
+    };
+    if (!plan(null).some(([cmd]) => cmd === "tab.new")) {
+      closeOverlay(overlay);
+      runAll(plan(null));
+      return;
+    }
+    cx.spawn(async () => {
+      try {
+        runAll(plan(restoreWidget(await readDataText(ARRANGEMENT_FILE))));
+      } finally {
+        closeOverlay(overlay);
       }
     });
   }

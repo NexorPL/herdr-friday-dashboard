@@ -20,6 +20,7 @@ export const ALERTS_FILE = "alerts.json";
 export const WORKLOGS_FILE = "worklogs.json";
 export const FAVORITES_FILE = "favorites.md";
 export const PRS_FILE = "prs.json";
+export const ARRANGEMENT_FILE = "arrangement.json";
 /** The owner's lists by widget id (D26, D40). */
 export const LIST_FILES = { todos: "todos.md", notes: "notes.md", priorities: "priorities.md", board: "board.md" };
 
@@ -234,6 +235,15 @@ export async function markPrsSeen(key, id) {
     return next;
   }, Date.now(), false);
   return rows;
+}
+
+/** Saves the arrangement, only when it changed (compare-and-swap). A newer file is left alone; a rejected write waits for the next check. */
+export async function writeArrangement(text) {
+  const path = dataPath(ARRANGEMENT_FILE);
+  const current = await readTextFile(path);
+  if (current === text || parseJson(current).state === "newer") return;
+  await ensureDataDir();
+  await writeTextFile(path, text, current);
 }
 
 /** A path from settings with `~` expanded. */

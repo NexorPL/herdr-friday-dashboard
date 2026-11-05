@@ -9,10 +9,24 @@
  * arranges, even when the shown tab happens to hold a single Friday pane.
  */
 export function planArrangement(tabPanes, splits, block = false) {
-  if (block || tabPanes.length !== 1 || tabPanes[0].mod !== "friday") return [];
-  const pane = tabPanes[0].pane;
-  return splits.map(([widget, direction]) => ({ pane, direction, mod: "friday", props: { widget } }));
+  const lone = block ? null : lonePane(tabPanes);
+  if (!lone) return [];
+  return splits.map(([widget, direction]) => ({ pane: lone.pane, direction, mod: "friday", props: { widget } }));
 }
+
+/** The Friday pane that is the only pane in its tab, or null: the one guard for arranging and for restoring. */
+export function lonePane(tabPanes) {
+  return tabPanes.length === 1 && tabPanes[0].mod === "friday" ? tabPanes[0] : null;
+}
+
+/**
+ * The props of a pane added beside others. A new copy starts before panes() lists it, so a summary
+ * added beside a lone pane sees that pane alone; `arranged` keeps it from splitting that pane with the defaults.
+ */
+export const addedPane = (widget) => ({ widget, arranged: true });
+
+/** Whether a summary pane with these props may run the default arrangement: only the first pane of a plain new tab. */
+export const arrangesByDefault = (props) => props.block !== true && props.restore !== true && props.arranged !== true;
 
 /**
  * The pane the + menu splits: the focused pane, and only if it is a Friday pane. A pane's own id is

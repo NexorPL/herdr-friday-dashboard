@@ -27,11 +27,23 @@ herdr-app check mods/friday
 herdr-app do tab.new --name Friday --mod friday --props '{"widget":"summary"}'
 ```
 
-The first pane arranges the default panes when it is the only pane in its tab. After that, rearrange them with herdr-app. The tab is kept by herdr-core, so the command is needed once, and again only after you close the tab. Settings (the gear in a pane header) shows the same command.
+The first pane arranges the default panes when it is the only pane in its tab. After that, rearrange them with herdr-app. The tab is kept by herdr-core, so the command is needed once, and again only after you close the tab. Settings (the gear in a pane header) shows the same command. This command always gives the default arrangement; the hotkey below brings back yours.
 
 ### Bind a hotkey
 
-`mod.open:friday` opens Friday's launcher, which selects the Friday tab (switching space if needed) or creates it when none exists. Bind it in `keys.json`, for example `"global": { "ctrl-alt-f": "mod.open:friday" }`. On Windows keyboards ctrl+alt is AltGr, so in some layouts the combination types a character instead of reaching herdr-app; pick another chord there. herdr-app's docs advise against ctrl+alt chords in general, so if the binding misbehaves, use another chord.
+`mod.open:friday` opens Friday's launcher, which selects the Friday tab (switching space if needed) or creates it when none exists, as you last left it (see below). Bind it in `keys.json`, for example `"global": { "ctrl-alt-f": "mod.open:friday" }`. On Windows keyboards ctrl+alt is AltGr, so in some layouts the combination types a character instead of reaching herdr-app; pick another chord there. herdr-app's docs advise against ctrl+alt chords in general, so if the binding misbehaves, use another chord.
+
+### Your arrangement is remembered
+
+On Windows, the panes of a Friday tab check about every 10 seconds how the tab is arranged and save its widgets, splits and sizes in `arrangement.json` in the data folder, and nothing else. Closing the tab, or herdr dying, keeps that file. When the launcher finds no Friday tab, it builds the new one from the file. With no file or a bad one you get the default arrangement. On macOS and Linux nothing is saved, and the default arrangement stays.
+
+Limits:
+
+- A change in the last 15 seconds or so before closing may not be saved (the 10-second check, plus up to 5 seconds until herdr-core has written it down). It can take longer right after you close the pane that was doing the checking, until another pane takes over.
+- A rebuild that fails leaves a partial tab and keeps the file: nothing is saved for an hour, so you can close the tab and press the key again. Changes you make in that hour are not saved either.
+- A terminal in the Friday tab does not come back.
+- With several Friday tabs, the first one is saved.
+- The arrangement comes from an internal file of herdr-core, which Friday only reads. An update can change that file, and then you get the default arrangement back.
 
 ## Mission control layout
 
