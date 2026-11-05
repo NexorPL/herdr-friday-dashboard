@@ -11,7 +11,7 @@ import { addFavorite } from "./core/favorites.js";
 import { applyFetch, markSeen, rowsFor } from "./core/prs.js";
 import { isMissingError, isTooLargeError } from "./core/mdfile.js";
 import { toggleTodo, addEntry } from "./core/lists.js";
-import { addToBoardFile, moveInBoardFile } from "./core/board.js";
+import { addToBoardFile, moveInBoardFile, importInBoardFile } from "./core/board.js";
 import { resolveSettings, setKey, expandHome } from "./core/settings.js";
 
 export const SETTINGS_FILE = "settings.json";
@@ -159,6 +159,21 @@ export async function addToBoard(column, text) {
 export async function moveOnBoard(card, place) {
   await ensureDataDir();
   return moveInBoardFile(mdIo, dataPath(LIST_FILES.board), card, place);
+}
+
+/** Imports todos.md and priorities.md onto board.md, with the marker line. They are only read. { ok, changed } or { ok: false, message }. */
+export async function importToBoard() {
+  await ensureDataDir();
+  const [todos, priorities] = [await readList("todos"), await readList("priorities")];
+  const bad = [todos, priorities].find((r) => !r.ok); // a locked or too large source must not be imported as empty, with the marker
+  if (bad) return { ok: false, message: bad.error };
+  return importInBoardFile(mdIo, dataPath(LIST_FILES.board), todos.text, priorities.text);
+}
+
+/** Dismisses the import offer: only the marker line is written. { ok, changed } or { ok: false, message }. */
+export async function dismissImport() {
+  await ensureDataDir();
+  return importInBoardFile(mdIo, dataPath(LIST_FILES.board), null, null);
 }
 
 /** The `sent` map of alerts.json (empty when the file is missing or unreadable). */

@@ -6,9 +6,9 @@ import { h_flex, v_flex } from "gpui-base";
 import { theme, setShared } from "herdr";
 import { SETTINGS_REV } from "../hub.js";
 import { parseBoard, nextSelection, selectMoved, movePlace, cardsWithoutStatus } from "../core/board.js";
-import { moveOnBoard } from "../store.js";
+import { moveOnBoard, importToBoard, dismissImport } from "../store.js";
 import { openLink } from "../open.js";
-import { note } from "../ui.js";
+import { button, note } from "../ui.js";
 import { editFile } from "./lists.js";
 
 /** Done can grow forever (R10 forbids deleting), so only this many of its cards are drawn. */
@@ -74,6 +74,32 @@ export function boardKey(v, e, cx) {
   cx.notify();
 }
 
+/** Import or Dismiss: one write at a time, then the file is read again. */
+function runImport(v, run, cx) {
+  if (v.busy) return;
+  v.busy = true;
+  v.message = null;
+  cx.spawn(async (cx) => {
+    try {
+      const r = await run().catch(() => ({ ok: false, message: "could not write the file" }));
+      if (!r.ok) v.message = r.message;
+      else if (run === importToBoard) setShared(SETTINGS_REV, Date.now()); // imported cards with a key get their status on the next poll
+      await v.readInto(true);
+    } finally {
+      v.busy = false;
+      cx.notify();
+    }
+  });
+}
+
+function offerView(v, t) {
+  const n = v.offer.length;
+  return h_flex().flex_none().gap(8).items_center()
+    .child(note(t, `Import ${n} ${n === 1 ? "line" : "lines"} from todos.md and priorities.md`))
+    .child(button(t, "bd-import", "Import", (_e, cx) => runImport(v, importToBoard, cx), true))
+    .child(button(t, "bd-dismiss", "Dismiss", (_e, cx) => runImport(v, dismissImport, cx)));
+}
+
 function cardView(v, t, col, card, selected, issue) {
   return div().id(`bd-${col.id}-${card.line}`).flex_none().p(6).rounded(5).border_1().cursor_pointer()
     .border_color(selected ? t.accent : t.border)
@@ -112,6 +138,7 @@ export function renderBoard(v) {
     .when(Boolean(v.message), (el) => el.child(note(t, v.message, "stale")))
     .when(board.outside > 0, (el) => el.child(note(t, `${board.outside} ${board.outside === 1 ? "line" : "lines"} in the file not shown`, "stale")))
     .when(unknown > 0, (el) => el.child(note(t, `${unknown} ${unknown === 1 ? "card" : "cards"} without status`, "stale")))
-    .when(empty && !v.list.error, (el) => el.child(note(t, "No cards yet. Add one with a.")))
+    .when(v.offer.length > 0, (el) => el.child(offerView(v, t)))
+    .when(empty && !v.list.error && v.offer.length === 0, (el) => el.child(note(t, "No cards yet. Add one with a.")))
     .child(h_flex().flex_1().min_h(0).gap(8).children(board.columns.map((col) => columnView(v, t, col, sel, issues))));
 }

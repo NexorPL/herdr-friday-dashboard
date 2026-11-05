@@ -3,8 +3,8 @@
 // adds a missing heading; it changes no line's text and deletes none. Pure: no `herdr` import; the
 // file reads and writes are passed in as `io` (see core/mdfile.js).
 import { jiraKeys } from "./jira.js";
-import { MARKER } from "./lists.js";
-import { HEADING, cleanLine, editMd, moveLines, onlyMoved, parseMd, renderMd } from "./mdfile.js";
+import { MARKER, todoRows, priorityRows } from "./lists.js";
+import { HEADING, checkboxOf, cleanLine, editMd, moveLines, onlyMoved, parseMd, renderMd } from "./mdfile.js";
 
 export const COLUMNS = [
   { id: "todo", title: "TODO" },
@@ -81,7 +81,7 @@ export function parseBoard(text) {
     });
     i += size - 1;
   }
-  return { columns, outside, imported };
+  return { columns, outside, imported, unclosed: open !== null };
 }
 
 /** `{ column, at: "top" }` for Done (the newest first), `{ column, at: "end" }` elsewhere: where a card lands when it changes column. */
@@ -268,4 +268,66 @@ export function selectMoved(board, card, place) {
     pick = hits.reduce((best, c) => (Math.abs(c.line - want) < Math.abs(best.line - want) ? c : best), hits[0]);
   } else if (place.at === "end") pick = hits.at(-1);
   return { column: col.id, card: pick };
+}
+
+/**
+ * The lines of todos.md and priorities.md that are not on the board yet, as { column, body } in
+ * file order: open todos for TODO, done todos for Done, priorities for Priority. A body already on
+ * the board (a card in any column, with or without a checkbox), or already listed, is skipped, and so
+ * is a line holding a comment mark, which would open a comment on the board. Its length is the N of the offer.
+ */
+export function importCandidates(boardText, todosText, prioritiesText) {
+  const seen = new Set(parseBoard(boardText).columns.flatMap((c) => c.cards.flatMap((x) => [x.body, (checkboxOf(x.text)?.body ?? x.body).trim()])));
+  const lines = [
+    ...todoRows(todosText).map((r) => ({ column: r.done ? "done" : "todo", body: r.body.trim() })),
+    ...priorityRows(prioritiesText, []).map((r) => ({ column: "priority", body: r.text.trim() })),
+  ];
+  return lines.filter(({ body }) => body !== "" && !/<!--|-->/.test(body) && !seen.has(body) && seen.add(body));
+}
+
+/**
+ * `text` (null for a missing file) with the import candidates added as `- body` lines after the last
+ * card of their columns, and the marker line on top. With no candidates it writes the marker alone
+ * (Dismiss). With the marker already there nothing changes, so a second copy importing at the same
+ * time adds nothing. One pass over the file, whatever the number of lines. A missing or empty
+ * file starts with all four headings; a missing heading is added at the end of the file.
+ */
+export function importLists(text, todosText, prioritiesText) {
+  if (parseBoard(text).imported) return text;
+  const adds = importCandidates(text, todosText, prioritiesText);
+  const empty = parseMd(text ?? "").lines.length === 0; // missing, empty, or only a BOM
+  const start = empty ? `${COLUMNS.map((c) => `## ${c.title}`).join("\n")}\n` : text;
+  const doc = parseMd(start);
+  if (empty) doc.bom = parseMd(text ?? "").bom;
+  const eol = doc.lines.find((l) => l.eol !== "")?.eol ?? "\n";
+  const insert = (at, texts) => { // the last-line rule: with no final newline the line that ends the file has none
+    const last = doc.lines.at(-1);
+    const open = at === doc.lines.length && last?.eol === "";
+    if (open) last.eol = eol;
+    doc.lines.splice(at, 0, ...texts.map((t, i) => ({ text: t, eol: open && i === texts.length - 1 ? "" : eol })));
+  };
+  const columns = parseBoard(start).columns;
+  const lines = (id) => adds.filter((a) => a.column === id).map((a) => `- ${a.body}`);
+  // bottom columns first, so the indexes of the ones above stay valid
+  for (const c of columns.filter((x) => x.heading >= 0).sort((a, b) => b.heading - a.heading)) {
+    const last = c.cards.at(-1);
+    if (lines(c.id).length > 0) insert(last ? last.line + last.size : c.heading + 1, lines(c.id));
+  }
+  for (const c of columns.filter((x) => x.heading < 0 && lines(x.id).length > 0)) insert(doc.lines.length, [`## ${c.title}`, ...lines(c.id)]);
+  insert(0, [IMPORT_MARKER]);
+  return renderMd(doc);
+}
+
+/**
+ * Imports the lists onto board.md, or only writes the marker (Dismiss) when they are null. A file
+ * that ends inside a comment or a code fence is left alone: cards added there would not show.
+ * { ok, changed } or { ok: false, message }.
+ */
+export async function importInBoardFile(io, path, todosText, prioritiesText) {
+  let blocked = false;
+  const r = await editMd(io, path, (t) => {
+    blocked = parseBoard(t).unclosed;
+    return blocked ? t : importLists(t, todosText, prioritiesText);
+  });
+  return blocked ? { ok: false, message: "the file ends inside a comment or a code block" } : r;
 }

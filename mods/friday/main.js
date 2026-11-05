@@ -15,7 +15,8 @@ import { renderJira, jiraRows } from "./widgets/jira.js";
 import { renderPrs, prRows, openPr } from "./widgets/prs.js";
 import { renderFavorites, favoriteList, favoritesFile, logRow } from "./widgets/favorites.js";
 import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, editFile } from "./widgets/lists.js";
-import { renderBoard, boardKey } from "./widgets/board.js";
+import { renderBoard, boardKey, boardOf } from "./widgets/board.js";
+import { importCandidates } from "./core/board.js";
 import { AddLineDialog } from "./dialogs/addline.js";
 import { readList, dataDir, LIST_FILES } from "./store.js";
 import { LogTimeDialog, AddFavoriteDialog } from "./dialogs/jira-dialogs.js";
@@ -55,6 +56,7 @@ export default class Friday extends View {
     this.sel = null; // board: the selected { column, card }
     this.showPast = false; // meetings: h shows the past ones (R04)
     this.message = null;
+    this.offer = []; // board: the lines the import would add
     this.list = { text: null, loaded: false, error: null }; // todos, notes, priorities: the file as last read
     this.busy = false; // a todo toggle is in flight
     this.reading = false; // a read of the list file is in flight
@@ -77,7 +79,8 @@ export default class Friday extends View {
             // Windows and macOS file names are case-insensitive, Linux's are not.
             const norm = (s) => (window().platform === "linux" ? s : s.toLowerCase()).replaceAll("\\", "/").replace(/\/$/, "");
             const dir = norm(dataDir());
-            const mine = paths.some((p) => { const q = norm(String(p)); return q === dir || q.endsWith(`/${norm(LIST_FILES[this.widget.id])}`); });
+            const files = this.widget.id === "board" ? [LIST_FILES.board, LIST_FILES.todos, LIST_FILES.priorities] : [LIST_FILES[this.widget.id]]; // the board also watches the files it can import
+            const mine = paths.some((p) => { const q = norm(String(p)); return q === dir || files.some((f) => q.endsWith(`/${norm(f)}`)); });
             if (!this.closed && mine && (await this.readInto(true))) cx.notify();
           }
         } catch {
@@ -111,12 +114,27 @@ export default class Friday extends View {
       const r = await readList(this.widget.id);
       if (seq !== this.readSeq) return false; // a newer read started meanwhile; its result wins
       const next = r.ok ? { text: r.text, loaded: true, error: null } : { ...this.list, loaded: true, error: r.error };
-      const changed = !this.list.loaded || next.text !== this.list.text || next.error !== this.list.error;
+      let changed = !this.list.loaded || next.text !== this.list.text || next.error !== this.list.error;
       this.list = next;
+      if (this.widget.id === "board") changed = (await this.readOffer(seq)) || changed;
       return changed;
     } finally {
       if (seq === this.readSeq) this.reading = false;
     }
+  }
+
+  /** The board: the lines todos.md and priorities.md could add, while the marker line is missing. True when the offer changed. */
+  async readOffer(seq) {
+    const was = JSON.stringify(this.offer ?? []);
+    const text = this.list.text;
+    let offer = [];
+    if (!boardOf(this).imported) {
+      const [todos, priorities] = await Promise.all([readList("todos"), readList("priorities")]);
+      offer = importCandidates(text, todos.ok ? todos.text : null, priorities.ok ? priorities.text : null);
+    }
+    if (seq !== this.readSeq) return false; // a newer read started meanwhile; its offer wins
+    this.offer = offer;
+    return JSON.stringify(offer) !== was;
   }
 
   reload(cx) {

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COLUMNS, IMPORT_MARKER, parseBoard, defaultPlace, moveCard, addCard, addToBoardFile, moveInBoardFile, isColumnHeading, nextSelection, selectCard, cardsWithoutStatus, movePlace, selectMoved, boardKeys } from "../mods/friday/core/board.js";
-import { onlyMoved, CHANGED } from "../mods/friday/core/mdfile.js";
+import { COLUMNS, IMPORT_MARKER, parseBoard, defaultPlace, moveCard, addCard, addToBoardFile, moveInBoardFile, isColumnHeading, nextSelection, selectCard, cardsWithoutStatus, movePlace, selectMoved, boardKeys, importCandidates, importLists, importInBoardFile } from "../mods/friday/core/board.js";
+import { onlyMoved, keepsEveryLine, CHANGED } from "../mods/friday/core/mdfile.js";
 
 const BOM = "﻿";
 const FILE = [
@@ -309,4 +309,82 @@ test("boardKeys lists the first key of each card by tier and skips Done", () => 
   const b = parseBoard("## TODO\n- TD-3 c TD-9\n## Priority\n- PR-2\n- no key\n## In progress\n- IN-1\n## Done\n- DN-1\n");
   assert.deepEqual(boardKeys(b), ["PR-2", "IN-1", "TD-3"]);
   assert.deepEqual(boardKeys(parseBoard("")), []);
+});
+
+test("importCandidates lists todos and priorities that are not on the board yet", () => {
+  const todos = "# Todos\n- [ ] Call the bank\n- [x] Book the train\n- [ ] Call the bank\nnot a todo\n";
+  const pri = "1. DEMO-12\n2. Prepare the demo\n";
+  assert.deepEqual(importCandidates(null, todos, pri), [
+    { column: "todo", body: "Call the bank" },
+    { column: "done", body: "Book the train" },
+    { column: "priority", body: "DEMO-12" },
+    { column: "priority", body: "Prepare the demo" },
+  ]);
+  // a body already on the board, in any column, is not offered again
+  assert.deepEqual(importCandidates("## Done\n- Call the bank\n## TODO\n- DEMO-12\n", todos, pri).map((c) => c.body), ["Book the train", "Prepare the demo"]);
+  assert.deepEqual(importCandidates(null, null, null), []);
+  assert.deepEqual(importCandidates(null, "", "# only a heading\n"), []);
+});
+
+test("importLists adds the candidates in their columns and the marker on top", () => {
+  const todos = "- [ ] a\n- [x] b\n";
+  const pri = "1. p\n2. q\n";
+  assert.equal(importLists(null, todos, pri), `${IMPORT_MARKER}\n## TODO\n- a\n## Priority\n- p\n- q\n## In progress\n## Done\n- b\n`);
+  // cards go after the last card of their column; a heading that is missing comes at the end
+  assert.equal(importLists("## TODO\n- x\n  note\n## Done\n- y\n", todos, ""), `${IMPORT_MARKER}\n## TODO\n- x\n  note\n- a\n## Done\n- y\n- b\n`);
+  assert.equal(importLists("## TODO\n- x\n", todos, pri), `${IMPORT_MARKER}\n## TODO\n- x\n- a\n## Priority\n- p\n- q\n## Done\n- b\n`);
+  // Dismiss: the marker alone (a new file also gets its four headings)
+  assert.equal(importLists("## TODO\n- x\n", null, null), `${IMPORT_MARKER}\n## TODO\n- x\n`);
+  assert.equal(importLists(null, null, null), `${IMPORT_MARKER}\n## TODO\n## Priority\n## In progress\n## Done\n`);
+  // with the marker there, nothing changes: a second import adds nothing
+  const once = importLists("## TODO\n", todos, pri);
+  assert.equal(importLists(once, todos, pri), once);
+  assert.equal(importLists(once, null, null), once);
+});
+
+test("importLists keeps every line, CRLF, the BOM and a missing final newline", () => {
+  for (const before of ["## TODO\r\n- x\r\n## Done", `${BOM}## TODO\n- x\n## Done\n- y`, "intro\r\n## Priority\r\n- z"]) {
+    const after = importLists(before, "- [ ] a\n- [x] b\n", "1. p\n");
+    assert.ok(keepsEveryLine(before, after), JSON.stringify(after));
+    assert.equal(after.endsWith("\n"), before.endsWith("\n"));
+    assert.equal(after.startsWith(BOM), before.startsWith(BOM));
+    assert.deepEqual(importCandidates(after, "- [ ] a\n- [x] b\n", "1. p\n"), [], "everything is on the board");
+  }
+});
+
+test("importLists on a big file is one pass", () => {
+  const todos = Array.from({ length: 3000 }, (_, i) => `- [ ] todo ${i}`).join("\n");
+  const t0 = Date.now();
+  const out = importLists(null, todos, "");
+  assert.equal(parseBoard(out).columns[0].cards.length, 3000);
+  assert.ok(Date.now() - t0 < 1500);
+});
+
+test("importInBoardFile: two copies importing at once do not double a card", async () => {
+  const f = fakeIo("## TODO\n- x\n");
+  const todos = "- [ ] a\n";
+  const [r1, r2] = await Promise.all([importInBoardFile(f.io, "board.md", todos, ""), importInBoardFile(f.io, "board.md", todos, "")]);
+  assert.equal(r1.ok && r2.ok, true);
+  assert.equal(f.text, `${IMPORT_MARKER}\n## TODO\n- x\n- a\n`);
+  assert.deepEqual(await importInBoardFile(f.io, "board.md", null, null), { ok: true, changed: false });
+  const g = fakeIo(null);
+  assert.deepEqual(await importInBoardFile(g.io, "board.md", null, null), { ok: true, changed: true });
+  assert.equal(parseBoard(g.text).imported, true);
+});
+
+test("import edge cases: a BOM-only file, checkbox cards, comments in the lists, an open block", async () => {
+  // a file with only a BOM is an empty file: it gets the headings and keeps the BOM
+  const bom = importLists(BOM, "- [ ] a\n", "");
+  assert.equal(bom, `${BOM}${IMPORT_MARKER}\n## TODO\n- a\n## Priority\n## In progress\n## Done\n`);
+  assert.equal(importLists(BOM, null, null).startsWith(`${BOM}${IMPORT_MARKER}`), true);
+  // a card that carries its own checkbox, or trailing spaces, is the same line as the todo
+  assert.deepEqual(importCandidates("## TODO\n- [ ] a\n- b\n", "- [ ] a\n- [ ] b  \n- [ ] c\n", ""), [{ column: "todo", body: "c" }]);
+  // the lines with a comment mark would open a comment on the board: not offered
+  assert.deepEqual(importCandidates(null, null, "1. DEMO-1\n<!-- old\n2. DEMO-2\n-->\n3. DEMO-3\n").map((c) => c.body), ["DEMO-1", "DEMO-2", "DEMO-3"]);
+  // a file that ends inside a code block is left alone
+  const f = fakeIo("## TODO\n- x\n```\n## Done\n");
+  assert.deepEqual(await importInBoardFile(f.io, "board.md", "- [ ] a\n", ""), { ok: false, message: "the file ends inside a comment or a code block" });
+  assert.equal(f.text, "## TODO\n- x\n```\n## Done\n");
+  assert.equal(parseBoard("## TODO\n<!--\n").unclosed, true);
+  assert.equal(parseBoard("## TODO\n<!-- a -->\n```\nx\n```\n").unclosed, false);
 });
