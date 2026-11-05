@@ -57,6 +57,8 @@ A layout block starts fresh on a switch: the board's selection and a half-typed 
 
 On the board, press a card and release it over another card to place it above that card, or over a column's header or free space to send it to the end of the column (the top in Done). A line shows where it will land. Leaving the board ends the drag and the card stays where it was. Shift+arrows move the selected card too.
 
+The notes widget has an input that is always there: type a note and press Enter to add it with a timestamp. A failed write keeps the text and shows the message. While the input has the keyboard, typed letters go to it and not to the widget keys; `a` or `n` moves the keyboard to the input, and Esc moves it back. A layout block that restarts loses a typed draft.
+
 Keep the Friday tab open anyway. Another layout starts its mods fresh, while mod panes in a tab stay alive, so the tab keeps the meeting alerts running whichever layout is shown.
 
 ## Data

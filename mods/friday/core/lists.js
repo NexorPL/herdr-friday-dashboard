@@ -88,3 +88,14 @@ export async function addEntry(io, path, kind, text, now = new Date()) {
       : (t) => addLine(t, priorityLine(t, clean));
   return editMd(io, path, change);
 }
+
+/**
+ * Enter in an input: passes its text to `add`, which returns { ok, message }, and clears the input
+ * once the line is written. A failed write keeps the text, and so does anything typed meanwhile.
+ */
+export async function submitLine(input, add) {
+  const text = input.value();
+  const r = await add(text).catch(() => ({ ok: false, message: "could not write the file" }));
+  if (r.ok && input.value() === text) input.set_value("");
+  return r;
+}

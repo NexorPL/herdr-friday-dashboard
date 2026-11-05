@@ -1,10 +1,12 @@
 // Todos, notes and priorities (D26, R10): the owner's plain `.md` files. Space or a click toggles a
-// todo, `a` adds a line, `e` opens the file in the default program, `r` reads it again.
+// todo, `a` adds a line (notes: moves to the input), `e` opens the file in the default program, `r`
+// reads it again.
 import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { theme } from "herdr";
-import { todoRows, noteRows, priorityRows } from "../core/lists.js";
-import { dataPath, LIST_FILES, toggleInTodos } from "../store.js";
+import { todoRows, noteRows, priorityRows, submitLine } from "../core/lists.js";
+import { dataPath, LIST_FILES, toggleInTodos, addToList } from "../store.js";
+import { field } from "../dialogs/jira-dialogs.js";
 import { openLink, openPath } from "../open.js";
 import { button, note } from "../ui.js";
 
@@ -38,7 +40,24 @@ export function toggleTodoRow(v, row, cx) {
   });
 }
 
-const EMPTY = { todos: "No todos yet. Add one with a.", notes: "No notes yet. Add one with a.", priorities: "No priorities yet. Add one with a." };
+/** Enter in the note input: one write at a time, then the file is read again. */
+export function submitNote(v, cx) {
+  if (v.busy) return;
+  v.busy = true;
+  v.message = null;
+  cx.spawn(async (cx) => {
+    try {
+      const r = await submitLine(v.noteInput, (text) => addToList("notes", text));
+      if (!r.ok) v.message = r.message;
+      await v.readInto(true);
+    } finally {
+      v.busy = false;
+      cx.notify();
+    }
+  });
+}
+
+const EMPTY = { todos: "No todos yet. Add one with a.", notes: "No notes yet. Type one above.", priorities: "No priorities yet. Add one with a." };
 
 /** The frame shared by the three: toolbar, messages, and the rows `draw(row, i)` makes. */
 function renderList(v, rows, draw) {
@@ -49,7 +68,7 @@ function renderList(v, rows, draw) {
     .when(Boolean(v.list.error), (el) => el.child(note(t, `${v.list.error}${v.list.text === null ? "" : " (showing the last read)"}`, "error")))
     .when(Boolean(v.message), (el) => el.child(note(t, v.message, "stale")))
     .child(h_flex().gap(8)
-      .child(button(t, `${id}-add`, "Add (a)", () => v.openAddLine()))
+      .when(id !== "notes", (el) => el.child(button(t, `${id}-add`, "Add (a)", () => v.openAddLine()))) // notes has its input
       .child(button(t, `${id}-edit`, "Edit file (e)", () => editFile(v))))
     .when(rows.length === 0 && !v.list.error, (el) => el.child(note(t, EMPTY[id])))
     .children(rows.map((r, i) => h_flex().id(`${id}-${i}`).gap(8).px(4).min_h(24).items_center().rounded(4).cursor_pointer()
@@ -69,10 +88,13 @@ export function renderTodos(v) {
 }
 
 export function renderNotes(v) {
-  return renderList(v, noteList(v), {
-    click: () => {},
-    row: (t, r) => div().flex_1().truncate().text_size(12.5).child(r.text),
-  });
+  const t = theme();
+  return v_flex().size_full()
+    .child(div().flex_none().px(10).pt(10).child(field(t, v.noteInput))) // above the scrolling rows, so it is always there
+    .child(div().flex_1().min_h(0).child(renderList(v, noteList(v), {
+      click: () => {},
+      row: (t2, r) => div().flex_1().truncate().text_size(12.5).child(r.text),
+    })));
 }
 
 export function renderPriorities(v) {

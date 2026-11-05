@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { todoRows, noteRows, priorityRows, priorityLine, noteLine, toggleTodo, addEntry, ADD_ERROR } from "../mods/friday/core/lists.js";
+import { todoRows, noteRows, priorityRows, priorityLine, noteLine, toggleTodo, addEntry, submitLine, ADD_ERROR } from "../mods/friday/core/lists.js";
 
 const issues = [{ key: "DEMO-12", summary: "Tidy the settings form", status: "In Progress", url: "https://x.example/browse/DEMO-12" }];
 const PRI = "# Today\n1. DEMO-12 fix it\n- Prepare the demo\n\n* DEMO-99 unknown\n";
@@ -87,4 +87,24 @@ test("addEntry: todos at the end, notes on top after the heading with a timestam
   await addEntry(p.io, "p.md", "priorities", "DEMO-1", now);
   assert.equal(p.text, "1. a\r\n2. b\r\n3. DEMO-1");
   assert.deepEqual(await addEntry(p.io, "p.md", "notes", "  ", now), { ok: false, message: ADD_ERROR });
+});
+
+test("submitLine clears the input only after a write that worked, and never loses what is typed", async () => {
+  const input = (value) => ({ value: () => value, set_value(v) { value = v; } });
+  const ok = input("idea");
+  assert.deepEqual(await submitLine(ok, async (text) => ({ ok: text === "idea" })), { ok: true });
+  assert.equal(ok.value(), "");
+
+  const refused = input("two");
+  assert.deepEqual(await submitLine(refused, async () => ({ ok: false, message: "no" })), { ok: false, message: "no" });
+  assert.equal(refused.value(), "two");
+
+  const thrown = input("three");
+  const r = await submitLine(thrown, async () => { throw new Error("C:/secret/path"); });
+  assert.deepEqual(r, { ok: false, message: "could not write the file" });
+  assert.equal(thrown.value(), "three");
+
+  const still = input("four");
+  await submitLine(still, async () => { still.set_value("four and more"); return { ok: true }; });
+  assert.equal(still.value(), "four and more", "typed while the write ran: stays");
 });

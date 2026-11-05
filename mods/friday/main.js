@@ -1,7 +1,7 @@
 // Friday: one mod, drawn as whichever widget `props().widget` names. A Friday tab holds several
 // panes of it. The same mod also draws its own dialogs, with `props().dialog`.
 import { View, div } from "gpui-kit";
-import { h_flex, v_flex } from "gpui-base";
+import { h_flex, v_flex, InputState } from "gpui-base";
 import { props, theme, panes, spaces, focused, run, openOverlay, closeOverlay, nextCommand, watchFolder, window } from "herdr";
 import { Hub } from "./hub.js";
 import { WIDGETS, widgetById, DEFAULT_SPLITS } from "./core/widgets.js";
@@ -14,7 +14,7 @@ import { renderMeetings, meetingRows, joinRow } from "./widgets/meetings.js";
 import { renderJira, jiraRows } from "./widgets/jira.js";
 import { renderPrs, prRows, openPr } from "./widgets/prs.js";
 import { renderFavorites, favoriteList, favoritesFile, logRow, moveFavoriteRow } from "./widgets/favorites.js";
-import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, editFile } from "./widgets/lists.js";
+import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, editFile, submitNote } from "./widgets/lists.js";
 import { renderBoard, boardKey, boardOf } from "./widgets/board.js";
 import { importCandidates } from "./core/board.js";
 import { AddLineDialog } from "./dialogs/addline.js";
@@ -64,6 +64,13 @@ export default class Friday extends View {
     this.readSeq = 0; // the newest read; an older result that arrives later is dropped
     this.watching = false; // watchFolder works: the timer is only a slow fallback
     this.handle = cx.focus_handle();
+    this.noteFocused = false; // notes: the input has the keyboard, so typed keys are not widget keys
+    if (this.widget && this.widget.id === "notes") {
+      this.noteInput = InputState.new({ value: "", placeholder: "Type a note, Enter adds it" });
+      this.noteInput.on("submit", (_e, cx) => submitNote(this, cx));
+      this.noteInput.on("focus", () => { this.noteFocused = true; });
+      this.noteInput.on("blur", () => { this.noteFocused = false; });
+    }
     this.hub = new Hub(this.widget ? [this.widget.id] : []);
     this.hub.start(cx);
     if (this.widget && LISTS.includes(this.widget.id)) {
@@ -172,6 +179,10 @@ export default class Friday extends View {
   }
 
   key(e, cx) {
+    if (this.noteFocused) { // a key in the input also reaches this handler on its way up the focus path
+      if (e.key === "escape") this.handle.focus();
+      return;
+    }
     if (this.widget && this.widget.id === "board") return boardKey(this, e, cx);
     if (this.widget && LISTS.includes(this.widget.id)) return this.listKey(e, cx);
     if (this.widget && this.widget.id === "meetings") return this.meetingsKey(e, cx);
@@ -229,6 +240,7 @@ export default class Friday extends View {
     else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
     else if (id === "todos" && (e.key === "space" || e.key === " " || e.key === "enter")) toggleTodoRow(this, rows[this.cursor], cx);
     else if (id === "priorities" && e.key === "enter" && rows[this.cursor]?.url) openLink(rows[this.cursor].url);
+    else if (id === "notes" && (e.key === "a" || e.key === "n")) this.noteInput.focus();
     else if (e.key === "a") this.openAddLine();
     else if (e.key === "n") this.openAddLine("notes"); // a quick note from any list (G29)
     else if (e.key === "e") editFile(this);
