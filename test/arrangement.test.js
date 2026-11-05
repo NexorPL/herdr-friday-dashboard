@@ -95,6 +95,16 @@ test("a tab with one widget left is that widget", () => {
   assert.deepEqual(arrangementFromDoc(doc(split("row", "r", [terminal("t"), block("a", "todos")]))), { widget: "todos", weight: 1 });
 });
 
+test("the tab with the most Friday panes is saved, the first of those on a tie", () => {
+  const beside = split("row", "t", [terminal("t1"), block("a", "notes")]);
+  const friday = split("row", "f", [block("b", "summary"), block("c", "ledger")]);
+  const other = split("row", "o", [block("d", "jira"), block("e", "prs")]);
+  const widgets = (text) => arrangementFromDoc(text).children.map((c) => c.widget);
+  assert.deepEqual(widgets(doc(beside, friday)), ["summary", "ledger"]);
+  assert.deepEqual(widgets(doc(friday, other)), ["summary", "ledger"]);
+  assert.equal(arrangementFromDoc(doc(split("row", "x", [terminal("t2")]))), null);
+});
+
 test("a split directly in a split of the same direction is flattened, keeping the shares", () => {
   const root = split("column", "r", [
     split("column", "c", [block("a", "summary", 1), block("b", "prs", 3)], 2),

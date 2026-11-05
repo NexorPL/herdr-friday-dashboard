@@ -13,4 +13,5 @@ test("the mod's version is package.json's", () => {
 test("the README names the herdr-app version and the reopen command Settings shows", () => {
   assert.ok(readme.includes(`herdr-app ${CHECKED_AGAINST}`));
   assert.ok(readme.includes(REOPEN_COMMAND));
+  assert.ok(REOPEN_COMMAND.includes("mod.open"), "a plain tab.new would give the default arrangement and replace the saved one");
 });

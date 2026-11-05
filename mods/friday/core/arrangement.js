@@ -53,13 +53,17 @@ function tabsOf(docText) {
   return JSON.parse(docText)["herdr-app"].value.spaces.flatMap((s) => s.tabs);
 }
 
-/** The arrangement of the first tab with a Friday pane, or null when there is none or the document is not as expected. */
+const leafCount = (node) => (node.children ? node.children.reduce((sum, c) => sum + leafCount(c), 0) : 1);
+
+/** The arrangement of the tab with the most Friday panes (the first of those on a tie), so one Friday pane beside a terminal is not taken for the Friday tab. Null when there is none or the document is not as expected. */
 export function arrangementFromDoc(docText) {
   try {
+    let best = null;
     for (const tab of tabsOf(docText)) {
       const root = prune(tab?.root);
-      if (root) return canonical(flatten(root));
+      if (root && (!best || leafCount(root) > leafCount(best))) best = root;
     }
+    return best && canonical(flatten(best));
   } catch {
     // an unexpected document reads as no Friday tab
   }
