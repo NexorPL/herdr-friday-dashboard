@@ -232,6 +232,13 @@ export function cardsWithoutStatus(board, issues, missing = []) {
   return board.columns.filter((c) => c.id !== "done").reduce((n, c) => n + c.cards.filter((x) => x.key && !known.has(x.key)).length, 0);
 }
 
+/** What a card reads: { title, detail }. A leading key is left to the card's key pill; a card that is only a key takes Jira's summary as its title. */
+export function cardFace(card, issue) {
+  const rest = card.key && card.body.startsWith(card.key) ? card.body.slice(card.key.length).replace(/^[\s:–—-]+/, "") : card.body;
+  const title = rest || issue?.summary || card.body;
+  return { title, detail: issue?.summary && issue.summary !== title ? issue.summary : null };
+}
+
 /**
  * Where Shift+`dir` puts the selected card: up and down swap it with its neighbour in the column,
  * left and right send it to the next column with `defaultPlace`. Null at an edge or with no card.

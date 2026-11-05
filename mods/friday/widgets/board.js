@@ -5,10 +5,10 @@ import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { theme, setShared } from "herdr";
 import { SETTINGS_REV } from "../hub.js";
-import { parseBoard, nextSelection, selectMoved, movePlace, cardsWithoutStatus } from "../core/board.js";
+import { parseBoard, nextSelection, selectMoved, movePlace, cardsWithoutStatus, cardFace } from "../core/board.js";
 import { moveOnBoard, importToBoard, dismissImport } from "../store.js";
 import { openLink } from "../open.js";
-import { button, note } from "../ui.js";
+import { button, note, stateColor } from "../ui.js";
 import { editFile } from "./lists.js";
 
 /** Done can grow forever (R10 forbids deleting), so only this many of its cards are drawn. */
@@ -100,26 +100,38 @@ function offerView(v, t) {
     .child(button(t, "bd-dismiss", "Dismiss", (_e, cx) => runImport(v, dismissImport, cx)));
 }
 
+const pill = (t, text, color) => div().flex_none().px(6).rounded(8).border_1().border_color(color).text_size(10.5).text_color(color).child(text);
+
+/** The color of Jira's status: the text says the status, this only helps the eye. */
+function statusColor(t, issue) {
+  if (issue.status_category === "done") return stateColor(t, "ok");
+  return issue.status_category === "indeterminate" ? t.accent : t.muted;
+}
+
 function cardView(v, t, col, card, selected, issue) {
-  return div().id(`bd-${col.id}-${card.line}`).flex_none().p(6).rounded(5).border_1().cursor_pointer()
+  const { title, detail } = cardFace(card, issue);
+  const done = col.id === "done";
+  return v_flex().id(`bd-${col.id}-${card.line}`).flex_none().gap(6).p(10).rounded(8).border_1().shadow_sm().cursor_pointer()
+    .bg(selected ? t.selected : t.background)
     .border_color(selected ? t.accent : t.border)
-    .max_h(62).overflow_hidden().text_size(12.5).text_color(col.id === "done" ? t.dim : t.foreground)
-    .when(selected, (el) => el.bg(t.selected))
     .hover((s) => s.bg(t.hover))
     .on_click((_e, cx) => { v.sel = { column: col.id, card }; if (v.handle) v.handle.focus(); cx.notify(); })
-    .child(card.body)
-    .when(Boolean(issue), (el) => el.child(div().truncate().text_size(11).text_color(t.dim).child(`${issue.status} · ${issue.summary}`)));
+    .child(div().max_h(53).overflow_hidden().line_height(1.35).text_size(13).text_color(done ? t.dim : t.foreground).child(title))
+    .when(Boolean(detail), (el) => el.child(div().truncate().text_size(11).text_color(t.dim).child(detail)))
+    .when(Boolean(card.key), (el) => el.child(h_flex().flex_wrap().gap(4).items_center()
+      .child(pill(t, card.key, t.dim))
+      .when(Boolean(issue), (row) => row.child(pill(t, issue.status, statusColor(t, issue))))));
 }
 
 function columnView(v, t, col, sel, issues) {
   const here = sel.column === col.id;
   const shown = col.id === "done" ? col.cards.slice(0, DONE_SHOWN) : col.cards;
   const more = col.cards.length - shown.length;
-  return v_flex().id(`bd-col-${col.id}`).flex_1().min_w(0).min_h(0).gap(6)
-    .child(h_flex().flex_none().px(4).gap(6).items_center()
+  return v_flex().id(`bd-col-${col.id}`).flex_1().min_w(0).min_h(0).gap(8).p(8).rounded(10).bg(t.canvas)
+    .child(h_flex().flex_none().px(2).gap(6).items_center()
       .child(div().text_size(12).font_semibold().text_color(here ? t.accent : t.foreground).child(col.title))
-      .child(div().text_size(11).text_color(t.dim).child(String(col.cards.length))))
-    .child(v_flex().id(`bd-list-${col.id}`).flex_1().min_h(0).overflow_y_scrollbar().gap(4)
+      .child(div().px(6).rounded(8).bg(t.raised).text_size(11).text_color(t.muted).child(String(col.cards.length))))
+    .child(v_flex().id(`bd-list-${col.id}`).flex_1().min_h(0).overflow_y_scrollbar().gap(6)
       .children(shown.map((card) => cardView(v, t, col, card, here && sel.card?.line === card.line, col.id === "done" ? null : issues.get(card.key))))
       .when(more > 0, (el) => el.child(div().px(4).text_size(11).text_color(t.dim).child(`+${more} more`))));
 }
@@ -140,5 +152,5 @@ export function renderBoard(v) {
     .when(unknown > 0, (el) => el.child(note(t, `${unknown} ${unknown === 1 ? "card" : "cards"} without status`, "stale")))
     .when(v.offer.length > 0, (el) => el.child(offerView(v, t)))
     .when(empty && !v.list.error && v.offer.length === 0, (el) => el.child(note(t, "No cards yet. Add one with a.")))
-    .child(h_flex().flex_1().min_h(0).gap(8).children(board.columns.map((col) => columnView(v, t, col, sel, issues))));
+    .child(h_flex().flex_1().min_h(0).gap(8).items_stretch().children(board.columns.map((col) => columnView(v, t, col, sel, issues)))); // h_flex centers its children: without the stretch a column collapses to its header and no card shows
 }

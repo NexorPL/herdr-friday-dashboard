@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COLUMNS, IMPORT_MARKER, parseBoard, defaultPlace, moveCard, addCard, addToBoardFile, moveInBoardFile, isColumnHeading, nextSelection, selectCard, cardsWithoutStatus, movePlace, selectMoved, boardKeys, importCandidates, importLists, importInBoardFile } from "../mods/friday/core/board.js";
+import { COLUMNS, IMPORT_MARKER, parseBoard, defaultPlace, moveCard, addCard, addToBoardFile, moveInBoardFile, isColumnHeading, nextSelection, selectCard, cardsWithoutStatus, movePlace, selectMoved, boardKeys, importCandidates, importLists, importInBoardFile, cardFace } from "../mods/friday/core/board.js";
 import { onlyMoved, keepsEveryLine, CHANGED } from "../mods/friday/core/mdfile.js";
 
 const BOM = "﻿";
@@ -387,4 +387,14 @@ test("import edge cases: a BOM-only file, checkbox cards, comments in the lists,
   assert.equal(f.text, "## TODO\n- x\n```\n## Done\n");
   assert.equal(parseBoard("## TODO\n<!--\n").unclosed, true);
   assert.equal(parseBoard("## TODO\n<!-- a -->\n```\nx\n```\n").unclosed, false);
+});
+
+test("cardFace leaves the key to its pill and falls back to Jira's summary", () => {
+  const face = (line, summary) => cardFace(parseBoard(`## TODO\n- ${line}\n`).columns[0].cards[0], summary ? { summary } : undefined);
+  assert.deepEqual(face("Call the bank"), { title: "Call the bank", detail: null });
+  assert.deepEqual(face("DEMO-12 ship the import"), { title: "ship the import", detail: null });
+  assert.deepEqual(face("DEMO-12: ship the import", "Ship it"), { title: "ship the import", detail: "Ship it" });
+  assert.deepEqual(face("DEMO-12", "Ship it"), { title: "Ship it", detail: null });
+  assert.deepEqual(face("DEMO-12"), { title: "DEMO-12", detail: null });
+  assert.deepEqual(face("see DEMO-12 today"), { title: "see DEMO-12 today", detail: null });
 });
