@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COLUMNS, IMPORT_MARKER, parseBoard, defaultPlace, moveCard, addCard, addToBoardFile, moveInBoardFile, isColumnHeading, nextSelection, selectCard, cardsWithoutStatus, movePlace, selectMoved } from "../mods/friday/core/board.js";
+import { COLUMNS, IMPORT_MARKER, parseBoard, defaultPlace, moveCard, addCard, addToBoardFile, moveInBoardFile, isColumnHeading, nextSelection, selectCard, cardsWithoutStatus, movePlace, selectMoved, boardKeys } from "../mods/friday/core/board.js";
 import { onlyMoved, CHANGED } from "../mods/friday/core/mdfile.js";
 
 const BOM = "﻿";
@@ -234,6 +234,7 @@ test("selectCard follows a card that moved; cardsWithoutStatus counts keyed card
   const b = parseBoard("## TODO\n- DEMO-1 a\n- no key\n## Priority\n- DEMO-2 b\n- DEMO-3 c\n## Done\n- DEMO-4 d\n");
   assert.equal(cardsWithoutStatus(b, [{ key: "DEMO-2" }]), 2, "DEMO-1 and DEMO-3; Done takes no status");
   assert.equal(cardsWithoutStatus(b, undefined), 3);
+  assert.equal(cardsWithoutStatus(b, [{ key: "DEMO-2" }], ["DEMO-1"]), 1, "a key Jira says does not exist is not waiting for a status");
   assert.equal(cardsWithoutStatus(parseBoard(""), []), 0);
 });
 
@@ -302,4 +303,10 @@ test("selectMoved picks the moved copy among identical cards", () => {
   assert.equal(selectMoved(after, cards[0], { column: "todo", at: "end" }).card.line, 3);
   assert.equal(selectMoved(after, cards[0], { column: "todo", at: "top" }).card.line, 1);
   assert.equal(selectMoved(after, cards[0], { column: "done", at: "top" }).column, "todo", "not in that column: falls back to the text");
+});
+
+test("boardKeys lists the first key of each card by tier and skips Done", () => {
+  const b = parseBoard("## TODO\n- TD-3 c TD-9\n## Priority\n- PR-2\n- no key\n## In progress\n- IN-1\n## Done\n- DN-1\n");
+  assert.deepEqual(boardKeys(b), ["PR-2", "IN-1", "TD-3"]);
+  assert.deepEqual(boardKeys(parseBoard("")), []);
 });

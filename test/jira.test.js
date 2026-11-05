@@ -52,6 +52,13 @@ test("the key set is built from missing, empty and full files", () => {
   const pri = "1. ABC-2 again (blocked by NOPE-9)\r\n2. fooABC-3 and ABC-4bar\r\n";
   assert.deepEqual(keySet(fav, pri), ["ABC-2", "ABC-10", "NOPE-9", "XYZ-1"]);
   assert.deepEqual(keySet(null, "ABC-1"), ["ABC-1"]);
+  // tiers: favorites, then priorities, then the board; the cap drops the lowest tier first, the result is sorted
+  assert.deepEqual(keySet("BB-2", "AA-1", ["CC-9", "AA-5"]), ["AA-1", "AA-5", "BB-2", "CC-9"]);
+  const favs = Array.from({ length: 39 }, (_, i) => `FA-${i + 1}`).join("\n");
+  const out = keySet(favs, "PA-1\nPA-2", ["BD-1"]);
+  assert.equal(out.length, 40);
+  assert.ok(out.includes("PA-1") && !out.includes("PA-2") && !out.includes("BD-1"), "one slot left: the first priority, no board card");
+  assert.deepEqual(keySet(null, null, ["BD-1", "BD-1"]), ["BD-1"], "board keys alone, without repeats");
   assert.equal(keySet(Array.from({ length: 80 }, (_, i) => `KEY-${i + 1}`).join("\n"), null).length, 40);
   assert.deepEqual(jiraKeys("A1-2, B-3."), ["A1-2"]); // a project has two or more characters, as in the ledger
 });

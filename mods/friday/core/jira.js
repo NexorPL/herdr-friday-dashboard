@@ -43,11 +43,13 @@ export function jiraKeys(text) {
 }
 
 /**
- * The keys to fetch besides the assigned issues: those in favorites.md and priorities.md. A file
- * that does not exist (null) or is empty adds none. Sorted, capped at MAX_EXTRA_KEYS.
+ * The keys to fetch besides the assigned issues, by tier: those in favorites.md, then priorities.md,
+ * then `boardKeys` (the board's cards, already in tier order). A file that does not exist (null) or
+ * is empty adds none. The first MAX_EXTRA_KEYS of the tiers, then sorted: a full list drops the
+ * lowest tier, never a favorite.
  */
-export function keySet(favorites, priorities) {
-  return [...new Set([...jiraKeys(favorites), ...jiraKeys(priorities)])].sort(compareKeys).slice(0, MAX_EXTRA_KEYS);
+export function keySet(favorites, priorities, boardKeys = []) {
+  return [...new Set([...jiraKeys(favorites), ...jiraKeys(priorities), ...boardKeys])].slice(0, MAX_EXTRA_KEYS).sort(compareKeys);
 }
 
 /** `ABC-2` before `ABC-10`, projects in letter order. */

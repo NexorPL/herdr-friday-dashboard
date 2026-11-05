@@ -3,8 +3,9 @@
 // are in core/board.js; this file only draws and reacts.
 import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { theme } from "herdr";
-import { parseBoard, nextSelection, selectMoved, movePlace } from "../core/board.js";
+import { theme, setShared } from "herdr";
+import { SETTINGS_REV } from "../hub.js";
+import { parseBoard, nextSelection, selectMoved, movePlace, cardsWithoutStatus } from "../core/board.js";
 import { moveOnBoard } from "../store.js";
 import { openLink } from "../open.js";
 import { note } from "../ui.js";
@@ -40,6 +41,7 @@ function moveSelected(v, sel, dir, cx) {
     try {
       const r = await moveOnBoard(card, place).catch(() => ({ ok: false, message: "could not write the file" }));
       if (!r.ok) v.message = r.message;
+      else if (card.key && card.column === "done") setShared(SETTINGS_REV, Date.now()); // a card back from Done takes a slot: its status arrives on the next poll
       await v.readInto(true);
       v.sel = selectMoved(boardOf(v), card, place) ?? selectionOf(v);
     } finally {
@@ -72,17 +74,18 @@ export function boardKey(v, e, cx) {
   cx.notify();
 }
 
-function cardView(v, t, col, card, selected) {
+function cardView(v, t, col, card, selected, issue) {
   return div().id(`bd-${col.id}-${card.line}`).flex_none().p(6).rounded(5).border_1().cursor_pointer()
     .border_color(selected ? t.accent : t.border)
     .max_h(62).overflow_hidden().text_size(12.5).text_color(col.id === "done" ? t.dim : t.foreground)
     .when(selected, (el) => el.bg(t.selected))
     .hover((s) => s.bg(t.hover))
     .on_click((_e, cx) => { v.sel = { column: col.id, card }; if (v.handle) v.handle.focus(); cx.notify(); })
-    .child(card.body);
+    .child(card.body)
+    .when(Boolean(issue), (el) => el.child(div().truncate().text_size(11).text_color(t.dim).child(`${issue.status} · ${issue.summary}`)));
 }
 
-function columnView(v, t, col, sel) {
+function columnView(v, t, col, sel, issues) {
   const here = sel.column === col.id;
   const shown = col.id === "done" ? col.cards.slice(0, DONE_SHOWN) : col.cards;
   const more = col.cards.length - shown.length;
@@ -91,7 +94,7 @@ function columnView(v, t, col, sel) {
       .child(div().text_size(12).font_semibold().text_color(here ? t.accent : t.foreground).child(col.title))
       .child(div().text_size(11).text_color(t.dim).child(String(col.cards.length))))
     .child(v_flex().id(`bd-list-${col.id}`).flex_1().min_h(0).overflow_y_scrollbar().gap(4)
-      .children(shown.map((card) => cardView(v, t, col, card, here && sel.card?.line === card.line)))
+      .children(shown.map((card) => cardView(v, t, col, card, here && sel.card?.line === card.line, col.id === "done" ? null : issues.get(card.key))))
       .when(more > 0, (el) => el.child(div().px(4).text_size(11).text_color(t.dim).child(`+${more} more`))));
 }
 
@@ -100,11 +103,15 @@ export function renderBoard(v) {
   if (!v.list.loaded) return v_flex().size_full().p(12).child(note(t, "Reading the file…"));
   const board = boardOf(v);
   const sel = selectionOf(v);
+  const jira = v.hub.jira(); // Jira's status of a keyed card; without Jira, or when it fails, a card is just its text
+  const issues = new Map((jira?.data.issues ?? []).map((i) => [i.key, i]));
+  const unknown = jira ? cardsWithoutStatus(board, jira.data.issues, jira.data.missing) : 0;
   const empty = board.columns.every((c) => c.cards.length === 0);
   return v_flex().size_full().p(10).gap(6)
     .when(Boolean(v.list.error), (el) => el.child(note(t, `${v.list.error}${v.list.text === null ? "" : " (showing the last read)"}`, "error")))
     .when(Boolean(v.message), (el) => el.child(note(t, v.message, "stale")))
     .when(board.outside > 0, (el) => el.child(note(t, `${board.outside} ${board.outside === 1 ? "line" : "lines"} in the file not shown`, "stale")))
+    .when(unknown > 0, (el) => el.child(note(t, `${unknown} ${unknown === 1 ? "card" : "cards"} without status`, "stale")))
     .when(empty && !v.list.error, (el) => el.child(note(t, "No cards yet. Add one with a.")))
-    .child(h_flex().flex_1().min_h(0).gap(8).children(board.columns.map((col) => columnView(v, t, col, sel))));
+    .child(h_flex().flex_1().min_h(0).gap(8).children(board.columns.map((col) => columnView(v, t, col, sel, issues))));
 }

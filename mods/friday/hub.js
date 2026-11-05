@@ -9,6 +9,7 @@ import { repoKey, prToast } from "./core/prs.js";
 import { dueAlerts, alertText } from "./core/alerts.js";
 import { runCalendar, runJira, runAdo, offsetNow } from "./net.js";
 import { keySet, jiraKeys } from "./core/jira.js";
+import { parseBoard, boardKeys } from "./core/board.js";
 import { localDay } from "./core/meetings.js";
 import { parseInterval, parseDurations } from "./core/durations.js";
 import { loadLedger, parseLedger, newestDays } from "./core/ledger.js";
@@ -230,9 +231,10 @@ export class Hub {
     }
     const fav = await readDataText("favorites.md");
     const pri = await readDataText("priorities.md");
+    const board = boardKeys(parseBoard(await readDataText("board.md")));
     const old = shared(JIRA);
     const kept = old?.for === key ? old.data : {};
-    const r = await runJira(cx, { site: j.site, email: j.email, kind: j.token_kind, token }, { keys: keySet(fav, pri), cloudId: kept.cloud_id ?? null, accountId: kept.account_id ?? null });
+    const r = await runJira(cx, { site: j.site, email: j.email, kind: j.token_kind, token }, { keys: keySet(fav, pri, board), cloudId: kept.cloud_id ?? null, accountId: kept.account_id ?? null });
     if (!r.ok) return { ...failed(prev, now, interval, { status: r.status ?? null, message: r.message }), for: key };
     // The widgets need to know which keys are favorites and which are priorities, in file order.
     const data = { ...r.value, favorites: jiraKeys(fav).slice(0, 200), priorities: jiraKeys(pri).slice(0, 200) };

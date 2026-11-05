@@ -221,9 +221,14 @@ export function selectCard(board, text) {
   return null;
 }
 
-/** How many keyed cards outside Done have no issue in `issues` (Jira did not return them): the "N cards without status" line. */
-export function cardsWithoutStatus(board, issues) {
-  const known = new Set((issues ?? []).map((i) => i.key));
+/** The Jira keys of the cards that take a slot in the poll, in tier order: Priority, then In progress, then TODO (Done takes none). */
+export function boardKeys(board) {
+  return ["priority", "progress", "todo"].flatMap((id) => board.columns.find((c) => c.id === id).cards.flatMap((c) => (c.key ? [c.key] : [])));
+}
+
+/** How many keyed cards outside Done have no issue in `issues` and are not in `missing` (keys Jira said do not exist, such as UTF-8): the "N cards without status" line. */
+export function cardsWithoutStatus(board, issues, missing = []) {
+  const known = new Set([...(issues ?? []).map((i) => i.key), ...missing]);
   return board.columns.filter((c) => c.id !== "done").reduce((n, c) => n + c.cards.filter((x) => x.key && !known.has(x.key)).length, 0);
 }
 
