@@ -44,6 +44,17 @@ herdr-app do layout.switch --name friday    # or ctrl-shift-l to cycle
 herdr-app do layout.switch --name main      # back to the default layout
 ```
 
+### Board layout
+
+`layouts/friday-board.json` puts the board across the top of the same window. Below it are three columns (summary over meetings, pull requests over the review ledger, Jira over favorites) and notes, then the active tab, which you can resize. The tab bar stays across the top of the window, where herdr-app draws the window buttons and the drag strip. The sidebar, the status bar and the hidden panel are the ones of `friday.json`, and it has no theme or font of its own either.
+
+```sh
+cp layouts/friday-board.json ~/.config/herdr-app/layouts/
+herdr-app do layout.switch --name friday-board    # or ctrl-shift-l to cycle through all layouts
+```
+
+A layout block starts fresh on a switch: the board's selection and a half-typed draft are lost, and the file is read again. Cards are in `board.md` and are not affected.
+
 Keep the Friday tab open anyway. Another layout starts its mods fresh, while mod panes in a tab stay alive, so the tab keeps the meeting alerts running whichever layout is shown.
 
 ## Data

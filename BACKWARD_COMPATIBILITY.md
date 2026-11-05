@@ -90,6 +90,13 @@ Friday writes `board.md` only to add `- text` after the last card of a column, t
 - **Breaking:** renaming the `board` id or `board.md`, changing the column names or the card rules so existing files read differently, or any write that changes a line's text or deletes one.
 - **Required path:** always read the older format, and never reformat a file wholesale.
 
+### `layouts/friday-board.json` (in force since the workboard, Phase 2)
+
+A layout file the owner copies to `~/.config/herdr-app/layouts/` and switches to by name (D44). Its name `friday-board` is what the owner's `layout.switch` calls and key bindings use, and herdr-app saves the sizes the owner drags under that name. Every Friday block carries `"block": true`, uses only widget ids of `core/widgets.js`, and the file has no theme or font of its own; everything that is not Friday mirrors `layouts/friday.json`.
+
+- **Breaking:** renaming the file, dropping `"block": true` (the block would arrange and split like a pane of a tab), or using a widget id that does not exist.
+- **Required path:** keep the name; add or move blocks freely, and note it in the release notes.
+
 ## Planned
 
 ### Data-folder files and their `version` (Phase 1 onward)
