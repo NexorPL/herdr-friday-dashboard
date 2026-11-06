@@ -80,6 +80,8 @@ cp layouts/friday-panel.json ~/.config/herdr-app/layouts/
 herdr-app do layout.switch --name friday-panel    # or pick it in Settings
 ```
 
+Friday's layouts draw the pane header themselves, so a pane in a Friday tab has one row with its widget's title, and a terminal's header looks as in the main layout. That needs the layout's `header` to be `{ "mod": "friday", "props": { "paneHead": true } }` in your copy too; copying the file gives you that but resets the order, so you can also change that one field. Panes already open keep their old code until herdr-app restarts. Friday finds a pane's widget in herdr-core's document, so a new pane may say `friday` for a few seconds, and if the document cannot be used the widgets keep their own headers under that row.
+
 The button stands before the tabs because herdr-app's tab bar is read-only and draws the window buttons at its right edge. On macOS with the sidebar hidden, the window buttons cover it.
 
 Keep the Friday tab open anyway. Another layout starts its mods fresh, while mod panes in a tab stay alive, so the tab keeps the meeting alerts running whichever layout is shown.

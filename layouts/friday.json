@@ -123,7 +123,10 @@
                   },
                   "header": {
                     "content": {
-                      "mod": "pane"
+                      "mod": "friday",
+                      "props": {
+                        "paneHead": true
+                      }
                     },
                     "height": 30,
                     "position": "top",

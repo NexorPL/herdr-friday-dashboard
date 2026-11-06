@@ -1,6 +1,9 @@
 // Small pieces every widget and dialog uses. Colors always come from theme().
 import { div } from "gpui-kit";
 import { h_flex } from "gpui-base";
+import { openOverlay } from "herdr";
+import { WIDGETS } from "./core/widgets.js";
+import { stateText } from "./core/format.js";
 
 /** A text button. `primary` is the filled one. */
 export function button(t, id, label, onClick, primary = false) {
@@ -20,6 +23,25 @@ export function iconButton(t, id, glyph, onClick) {
     .hover((s) => s.bg(t.hover).text_color(t.foreground))
     .on_click((e, cx) => { cx.stop_propagation(); onClick(e, cx); })
     .child(glyph);
+}
+
+export const openSettingsDialog = (section) => openOverlay({ mod: "friday", kind: "dialog", width: 540, height: 620, props: { dialog: "settings", section } });
+
+/** The + menu; it splits `pane`. */
+export const openAddMenu = (pane) => openOverlay({ mod: "friday", kind: "popup", width: 190, height: 90 + WIDGETS.length * 28, props: { dialog: "add", pane } });
+
+/** A widget's one-line header: its title and state, then `before`, ↻, ⚙ and, when given, +. The caller sets the height. */
+export function widgetHeader(t, w, hub, { refresh, settings, add, before = [] }) {
+  const source = w && w.sources[0];
+  const state = source ? hub.state(source) : "ok";
+  const rec = source ? hub.status()[source] : undefined;
+  return h_flex().px(10).gap(4).flex_none().items_center().border_b(1).border_color(t.border)
+    .child(div().flex_none().text_size(12).font_semibold().child(w ? w.title : "Friday"))
+    .child(div().flex_1().truncate().pl(6).text_size(11).text_color(state === "error" ? t.ansi1 : t.dim).child(source ? stateText(state, rec) : ""))
+    .children(before)
+    .child(iconButton(t, "fr-refresh", "↻", (_e, cx) => refresh(cx)))
+    .child(iconButton(t, "fr-settings", "⚙", () => settings()))
+    .when(Boolean(add), (el) => el.child(iconButton(t, "fr-add", "+", () => add())));
 }
 
 /** The color of a state: ok green, stale yellow, error red, the rest dim. Theme names only. */

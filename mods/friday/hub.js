@@ -297,9 +297,9 @@ export class Hub {
   }
 
   /** ↻: make the sources due now; the lease holder reads them within a few seconds. */
-  refresh(cx) {
+  refresh(cx, sources = this.sources) {
     const status = { ...(shared(STATUS) ?? {}) };
-    for (const source of this.sources) status[source] = refreshed(status[source]);
+    for (const source of sources) status[source] = refreshed(status[source]);
     setShared(STATUS, status);
     this.run(cx, true);
   }

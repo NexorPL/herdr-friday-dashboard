@@ -2,15 +2,14 @@
 // panes of it. The same mod also draws its own dialogs, with `props().dialog`.
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, InputState } from "gpui-base";
-import { props, theme, panes, spaces, focused, run, layout, openOverlay, closeOverlay, nextCommand, watchFolder, window } from "herdr";
+import { props, theme, panes, spaces, focused, run, layout, openOverlay, closeOverlay, nextCommand, shared, watchFolder, window } from "herdr";
 import { Hub } from "./hub.js";
-import { startSaving, restoreTab } from "./arrangement.js";
+import { startSaving, restoreTab, documentPath } from "./arrangement.js";
 import { WIDGETS, widgetById, DEFAULT_SPLITS } from "./core/widgets.js";
 import { planArrangement, splitTarget, arrangesByDefault } from "./core/arrange.js";
 import { restoreWidget } from "./core/arrangement.js";
 import { planLaunch } from "./core/launch.js";
-import { shownWidgets } from "./core/panel.js";
-import { stateText } from "./core/format.js";
+import { layoutHeadsPane, shownWidgets } from "./core/panel.js";
 import { renderSummary } from "./widgets/summary.js";
 import { renderLedger, flatRows } from "./widgets/ledger.js";
 import { renderMeetings, meetingRows, joinRow } from "./widgets/meetings.js";
@@ -19,6 +18,7 @@ import { renderPrs, prRows, openPr } from "./widgets/prs.js";
 import { renderFavorites, favoriteList, favoritesFile, logRow, moveFavoriteRow } from "./widgets/favorites.js";
 import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, editFile, submitNote } from "./widgets/lists.js";
 import { renderBoard, boardKey, boardOf } from "./widgets/board.js";
+import { PaneHead, DOC_UNREADABLE } from "./widgets/pane-head.js";
 import { importCandidates } from "./core/board.js";
 import { AddLineDialog } from "./dialogs/addline.js";
 import { readList, readDataText, dataDir, ARRANGEMENT_FILE, LIST_FILES } from "./store.js";
@@ -27,7 +27,7 @@ import { LogDayDialog } from "./dialogs/logday.js";
 import { SettingsDialog } from "./dialogs/settings.js";
 import { AddMenu } from "./dialogs/add.js";
 import { PanelMenu } from "./dialogs/panel.js";
-import { iconButton, note } from "./ui.js";
+import { note, openAddMenu, openSettingsDialog, widgetHeader } from "./ui.js";
 import { openLink, openPath } from "./open.js";
 
 const DIALOGS = { settings: SettingsDialog, add: AddMenu, panel: PanelMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog, addline: AddLineDialog };
@@ -49,7 +49,7 @@ export default class Friday extends View {
       this.launch(cx, p.overlay);
       return;
     }
-    const Dialog = DIALOGS[p.dialog];
+    const Dialog = p.paneHead ? PaneHead : DIALOGS[p.dialog];
     if (Dialog) {
       this.dialog = new Dialog();
       this.dialog.init(cx);
@@ -116,6 +116,8 @@ export default class Friday extends View {
         // Key bindings "friday.settings" and "friday.add" open those dialogs; only the summary pane answers, so one opens.
         else if (command === "settings" && this.widget && this.widget.id === "summary") this.openSettings(null);
         else if (command === "add" && this.widget && this.widget.id === "summary") this.openAdd();
+        // The pane header's ↻: it has no list of its own to read.
+        else if (command === "reload" && this.widget && LISTS.includes(this.widget.id)) this.reload(cx);
         cx.notify();
       }
     });
@@ -204,13 +206,12 @@ export default class Friday extends View {
   }
 
   openSettings(section) {
-    openOverlay({ mod: "friday", kind: "dialog", width: 540, height: 620, props: { dialog: "settings", section } });
+    openSettingsDialog(section);
   }
 
   openAdd() {
     if (this.block) return; // the + splits a pane of a tab; a block has none
-    const pane = splitTarget(focused(), panes());
-    openOverlay({ mod: "friday", kind: "popup", width: 190, height: 90 + WIDGETS.length * 28, props: { dialog: "add", pane } });
+    openAddMenu(splitTarget(focused(), panes()));
   }
 
   key(e, cx) {
@@ -318,16 +319,16 @@ export default class Friday extends View {
   }
 
   header(t) {
-    const w = this.widget;
-    const source = w && w.sources[0];
-    const state = source ? this.hub.state(source) : "ok";
-    const rec = source ? this.hub.status()[source] : undefined;
-    return h_flex().h(28).px(10).gap(4).flex_none().items_center().border_b(1).border_color(t.border)
-      .child(div().flex_none().text_size(12).font_semibold().child(w ? w.title : "Friday"))
-      .child(div().flex_1().truncate().pl(6).text_size(11).text_color(state === "error" ? t.ansi1 : t.dim).child(source ? stateText(state, rec) : ""))
-      .child(iconButton(t, "fr-refresh", "↻", (_e, cx) => { this.hub.refresh(cx); if (LISTS.includes(w?.id)) this.reload(cx); }))
-      .child(iconButton(t, "fr-settings", "⚙", () => this.openSettings(null)))
-      .when(!this.block, (el) => el.child(iconButton(t, "fr-add", "+", () => this.openAdd())));
+    return widgetHeader(t, this.widget, this.hub, {
+      refresh: (cx) => { this.hub.refresh(cx); if (LISTS.includes(this.widget?.id)) this.reload(cx); },
+      settings: () => this.openSettings(null),
+      add: this.block ? null : () => this.openAdd(),
+    }).h(28);
+  }
+
+  /** The layout's pane header draws this pane's title and buttons, so its own would repeat them. */
+  headedByLayout() {
+    return layoutHeadsPane(layout(), { block: this.block, widget: this.widget, path: documentPath(), unreadable: shared(DOC_UNREADABLE) });
   }
 
   /** The button before the tab bar, drawn like its Files and Changes buttons. Its press must not drag the window. */
@@ -354,7 +355,7 @@ export default class Friday extends View {
         .child(note(t, `This Friday knows: ${WIDGETS.map((w) => w.id).join(", ")}. Use + to add one.`));
     return v_flex().id("friday").size_full().text_color(t.foreground).track_focus(this.handle)
       .on_key_down((e, cx) => this.key(e, cx))
-      .child(this.header(t))
+      .when(!this.headedByLayout(), (el) => el.child(this.header(t)))
       .child(div().flex_1().min_h(0).child(body));
   }
 }

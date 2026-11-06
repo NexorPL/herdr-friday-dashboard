@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { WIDGETS, widgetById } from "../mods/friday/core/widgets.js";
-import { PANEL, panelChild } from "../mods/friday/core/panel.js";
+import { PANEL, panelChild, paneHeadIsFriday } from "../mods/friday/core/panel.js";
 
 const layout = JSON.parse(readFileSync(new URL("../layouts/friday.json", import.meta.url), "utf8"));
 const walk = (n) => [n, ...(n.children ?? []).flatMap(walk)];
@@ -72,4 +72,15 @@ test("layouts/friday-panel.json: the main layout, with a Friday button before th
   const copy = (layoutNodes, id) => JSON.stringify(layoutNodes.find((n) => n.id === id));
   for (const id of ["sidebar", "main", "panel", "status"]) assert.equal(copy(nodes, id), copy(walk(layout), id), id);
   assert.deepEqual(nodes.find((n) => n.id === "work-body").children.map((n) => n.id), ["main", "panel", PANEL]);
+});
+
+test("Friday's layouts head their panes with Friday, so a pane is not titled by the mod's name", () => {
+  for (const name of ["friday", "friday-board", "friday-panel"]) {
+    const root = JSON.parse(readFileSync(new URL(`../layouts/${name}.json`, import.meta.url), "utf8"));
+    assert.equal(paneHeadIsFriday(root), true, name);
+    const header = walk(root).find((n) => n.content?.tab === "active").content.pane.header.content;
+    assert.deepEqual(header, { mod: "friday", props: { paneHead: true } }, name);
+  }
+  assert.equal(paneHeadIsFriday({ id: "r", children: [{ id: "m", content: { tab: "active", pane: { header: { content: { mod: "pane" } } } } }] }), false);
+  assert.equal(paneHeadIsFriday({ id: "r", children: [{ id: "m", content: { tab: "active" } }] }), false);
 });

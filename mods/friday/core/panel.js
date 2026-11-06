@@ -5,13 +5,22 @@ export const PANEL = "friday-panel";
 export const panelChild = (widget) => `${PANEL}-${widget}`;
 const widgetOf = (child) => child.id.slice(panelChild("").length);
 
-function find(node, id) {
+export function find(node, id) {
   if (node?.id === id) return node;
   for (const child of node?.children ?? []) {
     const found = find(child, id);
     if (found) return found;
   }
   return null;
+}
+
+/** Whether a copy's own header would repeat the layout's: only a pane in a tab, under Friday's pane header, while that header can find widgets. */
+export const layoutHeadsPane = (root, { block, widget, path, unreadable }) => Boolean(!block && widget && path && !unreadable && paneHeadIsFriday(root));
+
+/** Whether the layout's pane header is Friday's own (widgets/pane-head.js). */
+export function paneHeadIsFriday(node) {
+  if (node?.content?.pane?.header?.content?.mod === "friday") return true;
+  return (node?.children ?? []).some(paneHeadIsFriday);
 }
 
 /** Every widget of the panel, top to bottom: the owner's order, kept in the layout. */

@@ -3,6 +3,7 @@
 // A node is { widget, weight } or { split: "row" | "column", weight, children }, with children in order.
 // Anything unexpected in the document or the file gives null, and the owner gets the default arrangement.
 import { parseJson, SUPPORTED_VERSION } from "./datafile.js";
+import { find } from "./panel.js";
 import { widgetById } from "./widgets.js";
 
 const DIRECTION = { row: "right", column: "down" };
@@ -78,6 +79,25 @@ export function liveTree(docText, tabId) {
     return null;
   }
 }
+
+/** The widget a pane shows (a block's id is its pane's id), or null when the document does not have it yet or it is no Friday widget. */
+export function widgetOfPane(docText, paneId) {
+  try {
+    for (const tab of tabsOf(docText)) {
+      const { mod, props } = find(tab?.root, paneId)?.content ?? {};
+      if (mod === "friday" && widgetById(props?.widget)) return props.widget;
+    }
+  } catch {
+    // an unexpected document reads as not known yet
+  }
+  return null;
+}
+
+/** After this many reads a pane's widget still not in the document counts as unreadable: a pane normally appears there within about 5 s. */
+const LOOKUP_TRIES = 15;
+export const lookupGaveUp = (tries) => tries >= LOOKUP_TRIES;
+/** ms until the next read. It never stops, so a document that comes back is noticed. */
+export const lookupDelay = (tries) => (lookupGaveUp(tries) ? 60_000 : 2000);
 
 /** The file's text. Unchanged arrangements give the same text, so they cause no write. */
 export function renderArrangement(arrangement) {

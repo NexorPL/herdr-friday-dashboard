@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { arrangementFromDoc, docPath, liveTree, parseArrangement, renderArrangement, resizePlan, restoreWidget, splitPlan } from "../mods/friday/core/arrangement.js";
+import { arrangementFromDoc, docPath, liveTree, parseArrangement, renderArrangement, lookupDelay, lookupGaveUp, resizePlan, restoreWidget, splitPlan, widgetOfPane } from "../mods/friday/core/arrangement.js";
+import { layoutHeadsPane } from "../mods/friday/core/panel.js";
 import { addedPane, arrangesByDefault, lonePane, planArrangement } from "../mods/friday/core/arrange.js";
 import { DEFAULT_SPLITS } from "../mods/friday/core/widgets.js";
 
@@ -261,4 +262,32 @@ test("a summary pane added beside others never runs the default arrangement: pan
   assert.equal(arrangesByDefault(addedPane("summary")), false);
   assert.equal(arrangesByDefault({ widget: "summary", restore: true }), false);
   assert.equal(arrangesByDefault({ widget: "summary", block: true }), false);
+});
+
+test("widgetOfPane: a block's id is its pane's id", () => {
+  const text = doc(split("row", "r", [block("p1", "board"), split("column", "c", [block("p2", "jira"), terminal("p3")])]));
+  assert.equal(widgetOfPane(text, "p1"), "board");
+  assert.equal(widgetOfPane(text, "p2"), "jira");
+  assert.equal(widgetOfPane(text, "p3"), null, "a terminal");
+  assert.equal(widgetOfPane(text, "r"), null, "a split");
+  assert.equal(widgetOfPane(text, "gone"), null, "not in the document yet");
+  assert.equal(widgetOfPane(doc(block("p9", "nosuch")), "p9"), null, "an unknown widget");
+  assert.equal(widgetOfPane("not json", "p1"), null);
+  assert.equal(widgetOfPane(null, "p1"), null);
+});
+
+test("a pane's widget not found: reads go on slower, and the widgets keep their own headers", () => {
+  assert.equal(lookupGaveUp(14), false);
+  assert.equal(lookupGaveUp(15), true);
+  assert.equal(lookupDelay(1), 2000);
+  assert.equal(lookupDelay(15), 60_000);
+
+  const root = { id: "m", content: { tab: "active", pane: { header: { content: { mod: "friday" } } } } };
+  const pane = { block: false, widget: { id: "jira" }, path: "/docs.json", unreadable: false };
+  assert.equal(layoutHeadsPane(root, pane), true);
+  assert.equal(layoutHeadsPane(root, { ...pane, unreadable: true }), false, "the document could not be used");
+  assert.equal(layoutHeadsPane(root, { ...pane, path: null }), false, "no document on this platform");
+  assert.equal(layoutHeadsPane(root, { ...pane, block: true }), false, "a block is not under a pane header");
+  assert.equal(layoutHeadsPane(root, { ...pane, widget: null }), false, "an unknown widget keeps its message and buttons");
+  assert.equal(layoutHeadsPane({ id: "m", content: { tab: "active", pane: { header: { content: { mod: "pane" } } } } }, pane), false, "another layout's header");
 });

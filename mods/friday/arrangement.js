@@ -16,7 +16,7 @@ const AFTER_FAILED_RESTORE = 3_600_000;
 /** The lease that picks the one copy that reads the document. */
 const LEASE = "arrangement";
 
-const documentPath = () => docPath(window().platform, home());
+export const documentPath = () => docPath(window()?.platform, home());
 
 /** Every 10 s the lease holder reads the document and saves a changed arrangement. No Friday tab in it keeps the last saved one. */
 export function startSaving(cx, hub) {
