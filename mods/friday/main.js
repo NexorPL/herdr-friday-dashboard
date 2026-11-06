@@ -2,14 +2,14 @@
 // panes of it. The same mod also draws its own dialogs, with `props().dialog`.
 import { View, div } from "gpui-kit";
 import { h_flex, v_flex, InputState } from "gpui-base";
-import { props, theme, panes, spaces, focused, run, layout, openOverlay, closeOverlay, nextCommand, shared, watchFolder, window } from "herdr";
+import { props, theme, panes, spaces, focused, run, layout, openOverlay, closeOverlay, nextCommand, shared, setShared, watchFolder, window } from "herdr";
 import { Hub } from "./hub.js";
 import { startSaving, restoreTab, documentPath } from "./arrangement.js";
 import { WIDGETS, widgetById, DEFAULT_SPLITS } from "./core/widgets.js";
 import { planArrangement, splitTarget, arrangesByDefault } from "./core/arrange.js";
 import { restoreWidget } from "./core/arrangement.js";
 import { planLaunch } from "./core/launch.js";
-import { layoutHeadsPane, shownWidgets } from "./core/panel.js";
+import { inPanel, isCollapsed, layoutHeadsPane, planCollapse, shownWidgets } from "./core/panel.js";
 import { renderSummary } from "./widgets/summary.js";
 import { renderLedger, flatRows } from "./widgets/ledger.js";
 import { renderMeetings, meetingRows, joinRow } from "./widgets/meetings.js";
@@ -27,12 +27,14 @@ import { LogDayDialog } from "./dialogs/logday.js";
 import { SettingsDialog } from "./dialogs/settings.js";
 import { AddMenu } from "./dialogs/add.js";
 import { PanelMenu } from "./dialogs/panel.js";
-import { note, openAddMenu, openSettingsDialog, widgetHeader } from "./ui.js";
+import { iconButton, note, openAddMenu, openSettingsDialog, widgetHeader } from "./ui.js";
 import { openLink, openPath } from "./open.js";
 
 const DIALOGS = { settings: SettingsDialog, add: AddMenu, panel: PanelMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog, addline: AddLineDialog };
 const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, jira: renderJira, favorites: renderFavorites, prs: renderPrs, todos: renderTodos, notes: renderNotes, priorities: renderPriorities, board: renderBoard };
 const LISTS = ["todos", "notes", "priorities", "board"];
+/** The side panel's expanded sizes: widget -> weight. */
+const PANEL_SIZES = "friday.panel_sizes";
 
 export default class Friday extends View {
   init(_props, cx) {
@@ -323,7 +325,19 @@ export default class Friday extends View {
       refresh: (cx) => { this.hub.refresh(cx); if (LISTS.includes(this.widget?.id)) this.reload(cx); },
       settings: () => this.openSettings(null),
       add: this.block ? null : () => this.openAdd(),
+      before: this.collapseButton(t),
     }).h(28);
+  }
+
+  /** The chevron of a widget in the side panel: folds it to this header and back. */
+  collapseButton(t) {
+    const id = this.widget?.id;
+    if (!this.block || !inPanel(layout(), id)) return [];
+    return [iconButton(t, "fr-collapse", isCollapsed(layout(), id) ? "▸" : "▾", () => {
+      const { args, sizes } = planCollapse(layout(), id, shared(PANEL_SIZES) ?? {});
+      setShared(PANEL_SIZES, sizes);
+      run("layout.resize", args);
+    })];
   }
 
   /** The layout's pane header draws this pane's title and buttons, so its own would repeat them. */

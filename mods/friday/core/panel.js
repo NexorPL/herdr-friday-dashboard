@@ -23,6 +23,21 @@ export function paneHeadIsFriday(node) {
   return (node?.children ?? []).some(paneHeadIsFriday);
 }
 
+/** A collapsed block's height: the header's 28 px and the block's border. The layout's `min` for these blocks is the same. */
+export const COLLAPSED_PX = 30;
+
+/** Whether this widget has a block in the panel; a Friday block elsewhere has no collapse. */
+export const inPanel = (root, widget) => Boolean(find(root, panelChild(widget)));
+
+export const isCollapsed = (root, widget) => find(root, panelChild(widget))?.size?.px === COLLAPSED_PX;
+
+/** The `layout.resize` arguments for a click on the chevron, and the expanded sizes to keep (`sizes`: widget -> weight), so expanding gives the earlier size back. */
+export function planCollapse(root, widget, sizes) {
+  const id = panelChild(widget);
+  if (isCollapsed(root, widget)) return { args: { id, weight: sizes[widget] ?? 1 }, sizes };
+  return { args: { id, px: COLLAPSED_PX }, sizes: { ...sizes, [widget]: find(root, id)?.size?.weight ?? 1 } };
+}
+
 /** Every widget of the panel, top to bottom: the owner's order, kept in the layout. */
 export const panelOrder = (root) => (find(root, PANEL)?.children ?? []).map(widgetOf);
 

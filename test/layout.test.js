@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { WIDGETS, widgetById } from "../mods/friday/core/widgets.js";
-import { PANEL, panelChild, paneHeadIsFriday } from "../mods/friday/core/panel.js";
+import { COLLAPSED_PX, PANEL, inPanel, isCollapsed, panelChild, paneHeadIsFriday, planCollapse } from "../mods/friday/core/panel.js";
 
 const layout = JSON.parse(readFileSync(new URL("../layouts/friday.json", import.meta.url), "utf8"));
 const walk = (n) => [n, ...(n.children ?? []).flatMap(walk)];
@@ -68,6 +68,7 @@ test("layouts/friday-panel.json: the main layout, with a Friday button before th
   assert.deepEqual(column.children.map((n) => n.id), WIDGETS.map((w) => panelChild(w.id)));
   assert.deepEqual(column.children.map((n) => n.content.props.widget), WIDGETS.map((w) => w.id));
   for (const n of column.children) assert.equal(n.hidden, true, n.id);
+  for (const n of column.children) assert.equal(n.min, COLLAPSED_PX, `${n.id} can fold to its header`);
   // everything else is what layouts/friday.json has
   const copy = (layoutNodes, id) => JSON.stringify(layoutNodes.find((n) => n.id === id));
   for (const id of ["sidebar", "main", "panel", "status"]) assert.equal(copy(nodes, id), copy(walk(layout), id), id);
@@ -83,4 +84,21 @@ test("Friday's layouts head their panes with Friday, so a pane is not titled by 
   }
   assert.equal(paneHeadIsFriday({ id: "r", children: [{ id: "m", content: { tab: "active", pane: { header: { content: { mod: "pane" } } } } }] }), false);
   assert.equal(paneHeadIsFriday({ id: "r", children: [{ id: "m", content: { tab: "active" } }] }), false);
+});
+
+test("planCollapse: folds a panel widget to its header and gives its size back", () => {
+  const root = (size) => ({ id: "root", children: [{ id: PANEL, children: [{ id: panelChild("jira"), ...(size ? { size } : {}) }] }] });
+  const id = panelChild("jira");
+  assert.equal(inPanel(root(), "jira"), true);
+  assert.equal(inPanel(root(), "notes"), false);
+  assert.equal(isCollapsed(root({ weight: 2 }), "jira"), false);
+  assert.equal(isCollapsed(root({ px: COLLAPSED_PX }), "jira"), true);
+  assert.equal(isCollapsed(root({ px: 200 }), "jira"), false, "another fixed size is not collapsed");
+
+  const folded = planCollapse(root({ weight: 2.5 }), "jira", { notes: 3 });
+  assert.deepEqual(folded, { args: { id, px: COLLAPSED_PX }, sizes: { notes: 3, jira: 2.5 } });
+  assert.deepEqual(planCollapse(root({ px: COLLAPSED_PX }), "jira", folded.sizes).args, { id, weight: 2.5 });
+  // a block nobody sized, and a collapsed one with no size kept
+  assert.deepEqual(planCollapse(root(), "jira", {}).sizes, { jira: 1 });
+  assert.deepEqual(planCollapse(root({ px: COLLAPSED_PX }), "jira", {}).args, { id, weight: 1 });
 });

@@ -205,7 +205,7 @@
                   "id": "friday-panel-summary",
                   "type": "block",
                   "hidden": true,
-                  "min": 90,
+                  "min": 30,
                   "background": "background",
                   "radius": 10,
                   "border": {
@@ -224,7 +224,7 @@
                   "id": "friday-panel-ledger",
                   "type": "block",
                   "hidden": true,
-                  "min": 90,
+                  "min": 30,
                   "background": "background",
                   "radius": 10,
                   "border": {
@@ -243,7 +243,7 @@
                   "id": "friday-panel-meetings",
                   "type": "block",
                   "hidden": true,
-                  "min": 90,
+                  "min": 30,
                   "background": "background",
                   "radius": 10,
                   "border": {
@@ -262,7 +262,7 @@
                   "id": "friday-panel-jira",
                   "type": "block",
                   "hidden": true,
-                  "min": 90,
+                  "min": 30,
                   "background": "background",
                   "radius": 10,
                   "border": {
@@ -281,7 +281,7 @@
                   "id": "friday-panel-favorites",
                   "type": "block",
                   "hidden": true,
-                  "min": 90,
+                  "min": 30,
                   "background": "background",
                   "radius": 10,
                   "border": {
@@ -300,7 +300,7 @@
                   "id": "friday-panel-prs",
                   "type": "block",
                   "hidden": true,
-                  "min": 90,
+                  "min": 30,
                   "background": "background",
                   "radius": 10,
                   "border": {
@@ -319,7 +319,7 @@
                   "id": "friday-panel-priorities",
                   "type": "block",
                   "hidden": true,
-                  "min": 90,
+                  "min": 30,
                   "background": "background",
                   "radius": 10,
                   "border": {
@@ -338,7 +338,7 @@
                   "id": "friday-panel-todos",
                   "type": "block",
                   "hidden": true,
-                  "min": 90,
+                  "min": 30,
                   "background": "background",
                   "radius": 10,
                   "border": {
@@ -357,7 +357,7 @@
                   "id": "friday-panel-notes",
                   "type": "block",
                   "hidden": true,
-                  "min": 90,
+                  "min": 30,
                   "background": "background",
                   "radius": 10,
                   "border": {
@@ -376,7 +376,7 @@
                   "id": "friday-panel-board",
                   "type": "block",
                   "hidden": true,
-                  "min": 90,
+                  "min": 30,
                   "background": "background",
                   "radius": 10,
                   "border": {

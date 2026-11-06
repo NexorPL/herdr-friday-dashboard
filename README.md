@@ -73,7 +73,7 @@ The notes widget has an input that is always there: type a note and press Enter 
 
 ### Panel layout
 
-`layouts/friday-panel.json` is herdr-app's main layout with a `Friday ▾` button before the tabs. The terminal keeps the whole width until you check a widget in the button's menu; the widget then opens in a panel on the right, which you can resize. Check more and they stack one under the other, in the menu's order; uncheck the last one and the panel closes. The arrows on a checked widget move it past its checked neighbour, and the order is kept in your copy of the layout, so copying the file again resets it. The menu stays open until you click beside it or press Esc. A widget stays as it was while it is unchecked. Files and Changes work as in the main layout and can be open next to it.
+`layouts/friday-panel.json` is herdr-app's main layout with a `Friday ▾` button before the tabs. The terminal keeps the whole width until you check a widget in the button's menu; the widget then opens in a panel on the right, which you can resize. Check more and they stack one under the other, in the menu's order; uncheck the last one and the panel closes. The arrows on a checked widget move it past its checked neighbour, and the order is kept in your copy of the layout, so copying the file again resets it. The menu stays open until you click beside it or press Esc. A widget stays as it was while it is unchecked. The chevron on a widget's header folds it to that header, and the others take the room; it expands to its earlier size. Folding needs the panel's blocks to have `"min": 30` in your copy of the layout. Files and Changes work as in the main layout and can be open next to it.
 
 ```sh
 cp layouts/friday-panel.json ~/.config/herdr-app/layouts/
