@@ -12,6 +12,7 @@ herdr-core saves each Friday pane as `{ "mod": "friday", "props": { "widget": "<
 
 - **Breaking:** renaming the mod folder `friday` or a `widget` id, which turns saved panes into errors.
 - **Required path:** never rename an id. A replaced widget keeps answering to its old id.
+- **Removed 2026-11-07 (owner):** the `jira` widget. A saved pane with it shows "Unknown widget"; a saved Friday tab arrangement that has it falls back to the default. The Jira source, `favorites.md`, `priorities.md` and card status are unchanged.
 
 ### Launcher `mod.open:friday` (in force)
 

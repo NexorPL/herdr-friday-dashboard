@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { panelChild, panelOrder, shownWidgets, planPanel, swapTarget, swapped, PANEL } from "../mods/friday/core/panel.js";
+import { panelChild, panelOrder, shownWidgets, planPanel, planAutoHide, swapTarget, swapped, PANEL } from "../mods/friday/core/panel.js";
 
 const WIDGETS = ["summary", "notes", "board"];
 const root = (...shown) => ({ id: "root", children: [
@@ -41,4 +41,12 @@ test("swapped: only the two widgets trade places, and the layout it was given st
   assert.deepEqual(panelOrder(next), ["board", "notes", "summary"]);
   assert.deepEqual(shownWidgets(next), ["board", "summary"]);
   assert.deepEqual(panelOrder(r), WIDGETS);
+});
+
+test("planAutoHide: closes an open panel in a tab with Friday panes, and only then", () => {
+  const panes = [{ pane: "p1", mod: "friday", tab: "t1" }, { pane: "p2", terminal: "x", tab: "t2" }];
+  assert.deepEqual(planAutoHide(root("summary", "board"), panes, "t1"), [hide(panelChild("summary")), hide(panelChild("board")), hide(PANEL)]);
+  assert.deepEqual(planAutoHide(root("summary"), panes, "t2"), [], "a terminal tab keeps the panel");
+  assert.deepEqual(planAutoHide(root(), panes, "t1"), [], "a closed panel stays as it is");
+  assert.deepEqual(planAutoHide(root("summary"), panes, undefined), [], "no focused tab");
 });

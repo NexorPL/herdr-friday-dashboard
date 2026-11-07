@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { siteOrigin, validateJira, baseUrl, authHeader, jiraKeys, keySet, compareKeys, myRows, parseIssue, fetchCloudId, testMyself, fetchJira, FETCH_TIMEOUT_MS } from "../mods/friday/core/jira.js";
+import { siteOrigin, validateJira, baseUrl, authHeader, jiraKeys, keySet, compareKeys, parseIssue, fetchCloudId, testMyself, fetchJira, FETCH_TIMEOUT_MS } from "../mods/friday/core/jira.js";
 
 const TOKEN = "TEST-TOKEN-123";
 const CFG = { site: "https://acme.atlassian.net", email: "me@example.org", kind: "scoped", token: TOKEN };
@@ -63,13 +63,7 @@ test("the key set is built from missing, empty and full files", () => {
   assert.deepEqual(jiraKeys("A1-2, B-3."), ["A1-2"]); // a project has two or more characters, as in the ledger
 });
 
-test("rows: priority first, then key in project and number order; others are not mine", () => {
-  const origin = "https://acme.atlassian.net";
-  const mk = (key, p, assigned = true) => parseIssue(issue(key, p), origin, assigned);
-  const rows = myRows([mk("ABC-10", "High"), mk("ABC-2", "High"), mk("AAA-9", "Low"), mk("ZZZ-1", "Highest"), mk("ABC-3", "Wat"), mk("ABC-4", ""), mk("FAV-1", "Highest", false), mk("ABC-1", "Medium")]);
-  assert.deepEqual(rows.map((r) => r.key), ["ZZZ-1", "ABC-2", "ABC-10", "ABC-1", "AAA-9", "ABC-3", "ABC-4"]);
-  assert.equal(rows[0].url, "https://acme.atlassian.net/browse/ZZZ-1");
-  assert.deepEqual(myRows(null), []);
+test("compareKeys orders by project, then number", () => {
   assert.ok(compareKeys("ABC-2", "ABC-10") < 0);
 });
 
@@ -192,13 +186,6 @@ test("jira settings default to a scoped token every 5 minutes, and an unknown ki
   assert.deepEqual(resolveSettings({ jira: { token_kind: "pat", interval: "0s" } }).invalid, ["jira.token_kind", "jira.interval"]);
 });
 
-import { widgetById, sourcesFor, SOURCES } from "../mods/friday/core/widgets.js";
+import { sourcesFor, SOURCES } from "../mods/friday/core/widgets.js";
 import { httpsLink } from "../mods/friday/core/links.js";
 
-test("the Jira widget reads the jira source, and every row's link passes the https filter", () => {
-  assert.deepEqual(widgetById("jira").sources, ["jira"]);
-  assert.deepEqual(sourcesFor(["jira"]), ["jira"]);
-  assert.equal(SOURCES.jira.interval, 300);
-  const rows = myRows([parseIssue(issue("ABC-1", "High"), "https://acme.atlassian.net", true)]);
-  assert.equal(httpsLink(rows[0].url), rows[0].url);
-});

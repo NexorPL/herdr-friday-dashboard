@@ -9,11 +9,10 @@ import { WIDGETS, widgetById, DEFAULT_SPLITS } from "./core/widgets.js";
 import { planArrangement, splitTarget, arrangesByDefault } from "./core/arrange.js";
 import { restoreWidget } from "./core/arrangement.js";
 import { planLaunch } from "./core/launch.js";
-import { inPanel, isCollapsed, layoutHeadsPane, planCollapse, shownWidgets } from "./core/panel.js";
+import { inPanel, isCollapsed, layoutHeadsPane, planAutoHide, planCollapse, shownWidgets } from "./core/panel.js";
 import { renderSummary } from "./widgets/summary.js";
 import { renderLedger, flatRows } from "./widgets/ledger.js";
 import { renderMeetings, meetingRows, joinRow } from "./widgets/meetings.js";
-import { renderJira, jiraRows } from "./widgets/jira.js";
 import { renderPrs, prRows, openPr } from "./widgets/prs.js";
 import { renderFavorites, favoriteList, favoritesFile, logRow, moveFavoriteRow } from "./widgets/favorites.js";
 import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, editFile, submitNote } from "./widgets/lists.js";
@@ -31,7 +30,7 @@ import { iconButton, note, openAddMenu, openSettingsDialog, widgetHeader } from 
 import { openLink, openPath } from "./open.js";
 
 const DIALOGS = { settings: SettingsDialog, add: AddMenu, panel: PanelMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog, addline: AddLineDialog };
-const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, jira: renderJira, favorites: renderFavorites, prs: renderPrs, todos: renderTodos, notes: renderNotes, priorities: renderPriorities, board: renderBoard };
+const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, favorites: renderFavorites, prs: renderPrs, todos: renderTodos, notes: renderNotes, priorities: renderPriorities, board: renderBoard };
 const LISTS = ["todos", "notes", "priorities", "board"];
 /** The side panel's expanded sizes: widget -> weight. */
 const PANEL_SIZES = "friday.panel_sizes";
@@ -40,9 +39,13 @@ export default class Friday extends View {
   init(_props, cx) {
     // props() is null while `herdr-app check` loads the mod.
     const p = props() || {};
-    // The Friday button in layouts/friday-panel.json: no widget, so no hub and no timers.
+    // The Friday button in layouts/friday-panel.json: no widget or hub. Its one timer closes the panel in a Friday tab.
     if (p.panelMenu) {
       this.panelMenu = true;
+      cx.timer.every(1000, (cx) => {
+        for (const [cmd, args] of planAutoHide(layout(), panes(), focused()?.tab)) run(cmd, args);
+        cx.notify();
+      });
       return;
     }
     // `mod.open:friday` opens this mod with only props().overlay: act as the launcher and vanish (no hub, no timers).
@@ -224,7 +227,6 @@ export default class Friday extends View {
     if (this.widget && this.widget.id === "board") return boardKey(this, e, cx);
     if (this.widget && LISTS.includes(this.widget.id)) return this.listKey(e, cx);
     if (this.widget && this.widget.id === "meetings") return this.meetingsKey(e, cx);
-    if (this.widget && this.widget.id === "jira") return this.jiraKey(e, cx);
     if (this.widget && this.widget.id === "favorites") return this.favoritesKey(e, cx);
     if (this.widget && this.widget.id === "prs") return this.prsKey(e, cx);
     if (!this.widget || this.widget.id !== "ledger") return;
@@ -293,16 +295,6 @@ export default class Friday extends View {
     else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
     else if (e.key === "enter") openPr(this, rows[this.cursor], cx);
     else if (e.key === "m") this.hub.markSeen(cx, null);
-    else if (e.key === "r") this.hub.refresh(cx);
-    else return;
-    cx.notify();
-  }
-
-  jiraKey(e, cx) {
-    const rows = jiraRows(this);
-    if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
-    else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
-    else if (e.key === "enter" && rows[this.cursor]) openLink(rows[this.cursor].url);
     else if (e.key === "r") this.hub.refresh(cx);
     else return;
     cx.notify();

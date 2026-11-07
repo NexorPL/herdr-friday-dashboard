@@ -1,6 +1,6 @@
 # Friday for herdr-app
 
-Friday is a work dashboard for [herdr-app](https://github.com/herdrdev/herdr-app), written as one JavaScript mod (`mods/friday`). A Friday tab holds several panes of the mod, each showing one widget: summary, meetings, Jira issues and favorites, Azure DevOps pull requests, the review ledger, priorities, todos, notes and a board. herdr-app moves, resizes and splits the panes. Nothing runs when herdr-app is closed.
+Friday is a work dashboard for [herdr-app](https://github.com/herdrdev/herdr-app), written as one JavaScript mod (`mods/friday`). A Friday tab holds several panes of the mod, each showing one widget: summary, meetings, Jira favorites, Azure DevOps pull requests, the review ledger, priorities, todos, notes and a board. herdr-app moves, resizes and splits the panes. Nothing runs when herdr-app is closed.
 
 Checked against herdr-app 0.1.12.
 
@@ -47,7 +47,7 @@ Limits:
 
 ## Mission control layout
 
-`layouts/friday.json` is a whole window in one screen: herdr-app's spaces and agents on the left, the tab bar and the active tab (terminals and agents) in the middle, and a resizable column of Friday on the right: summary, meetings, pull requests, and Jira, priorities and todos. It has no theme or font of its own, so your settings decide the look. It is an addition to the Friday tab, not a replacement.
+`layouts/friday.json` is a whole window in one screen: herdr-app's spaces and agents on the left, the tab bar and the active tab (terminals and agents) in the middle, and a resizable column of Friday on the right: summary, meetings, pull requests, and priorities and todos. It has no theme or font of its own, so your settings decide the look. It is an addition to the Friday tab, not a replacement.
 
 ```sh
 # from the repository root
@@ -58,7 +58,7 @@ herdr-app do layout.switch --name main      # back to the default layout
 
 ### Board layout
 
-`layouts/friday-board.json` puts the board across the top of the same window. Below it are three columns (summary over meetings, pull requests over the review ledger, Jira over favorites) and notes, then the active tab, which you can resize. The tab bar stays across the top of the window, where herdr-app draws the window buttons and the drag strip. The sidebar, the status bar and the hidden panel are the ones of `friday.json`, and it has no theme or font of its own either.
+`layouts/friday-board.json` puts the board across the top of the same window. Below it are three columns (summary over meetings, pull requests over the review ledger, favorites alone) and notes, then the active tab, which you can resize. The tab bar stays across the top of the window, where herdr-app draws the window buttons and the drag strip. The sidebar, the status bar and the hidden panel are the ones of `friday.json`, and it has no theme or font of its own either.
 
 ```sh
 cp layouts/friday-board.json ~/.config/herdr-app/layouts/
@@ -73,7 +73,7 @@ The notes widget has an input that is always there: type a note and press Enter 
 
 ### Panel layout
 
-`layouts/friday-panel.json` is herdr-app's main layout with a `Friday ▾` button before the tabs. The terminal keeps the whole width until you check a widget in the button's menu; the widget then opens in a panel on the right, which you can resize. Check more and they stack one under the other, in the menu's order; uncheck the last one and the panel closes. The arrows on a checked widget move it past its checked neighbour, and the order is kept in your copy of the layout, so copying the file again resets it. The menu stays open until you click beside it or press Esc. A widget stays as it was while it is unchecked. The chevron on a widget's header folds it to that header, and the others take the room; it expands to its earlier size. Folding needs the panel's blocks to have `"min": 30` in your copy of the layout. Files and Changes work as in the main layout and can be open next to it.
+`layouts/friday-panel.json` is herdr-app's main layout with a `Friday ▾` button before the tabs. The terminal keeps the whole width until you check a widget in the button's menu; the widget then opens in a panel on the right, which you can resize. Check more and they stack one under the other, in the menu's order; uncheck the last one and the panel closes. The arrows on a checked widget move it past its checked neighbour, and the order is kept in your copy of the layout, so copying the file again resets it. The menu stays open until you click beside it or press Esc. A widget stays as it was while it is unchecked. The chevron on a widget's header folds it to that header, and the others take the room; it expands to its earlier size. Folding needs the panel's blocks to have `"min": 30` in your copy of the layout. In a tab that holds Friday panes the panel closes by itself within a second, since it would repeat them; check a widget again to reopen it. Files and Changes work as in the main layout and can be open next to it.
 
 ```sh
 cp layouts/friday-panel.json ~/.config/herdr-app/layouts/

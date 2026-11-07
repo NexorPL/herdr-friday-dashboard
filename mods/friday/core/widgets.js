@@ -6,7 +6,6 @@ export const WIDGETS = [
   { id: "summary", title: "Summary", sources: ["ledger", "calendar", "jira", "ado"] },
   { id: "ledger", title: "Review ledger", sources: ["ledger"] },
   { id: "meetings", title: "Meetings", sources: ["calendar"] },
-  { id: "jira", title: "Jira", sources: ["jira"] },
   { id: "favorites", title: "Favorites", sources: ["jira"] },
   { id: "prs", title: "Pull requests", sources: ["ado"] },
   { id: "priorities", title: "Priorities", sources: ["jira"] },

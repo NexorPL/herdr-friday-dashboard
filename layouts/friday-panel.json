@@ -259,25 +259,6 @@
                   }
                 },
                 {
-                  "id": "friday-panel-jira",
-                  "type": "block",
-                  "hidden": true,
-                  "min": 30,
-                  "background": "background",
-                  "radius": 10,
-                  "border": {
-                    "width": 1,
-                    "color": "border"
-                  },
-                  "content": {
-                    "mod": "friday",
-                    "props": {
-                      "widget": "jira",
-                      "block": true
-                    }
-                  }
-                },
-                {
                   "id": "friday-panel-favorites",
                   "type": "block",
                   "hidden": true,

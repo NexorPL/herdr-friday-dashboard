@@ -59,9 +59,6 @@ export function compareKeys(a, b) {
   return pa < pb ? -1 : pa > pb ? 1 : Number(na) - Number(nb);
 }
 
-const RANKS = { blocker: 0, highest: 0, critical: 0, high: 1, major: 1, medium: 2, normal: 2, low: 3, minor: 3, lowest: 4, trivial: 4 };
-const rank = (name) => RANKS[String(name ?? "").toLowerCase()] ?? 5;
-
 /** One issue as Friday keeps it; null when the answer has no key. `origin` builds the browse link. */
 export function parseIssue(raw, origin, assigned) {
   const f = raw?.fields ?? {};
@@ -75,11 +72,6 @@ export function parseIssue(raw, origin, assigned) {
     assigned,
     url: `${origin}/browse/${raw.key}`,
   };
-}
-
-/** My issues in the order the widget shows them: priority (highest first), then key. */
-export function myRows(issues) {
-  return (issues ?? []).filter((i) => i.assigned).sort((a, b) => rank(a.priority) - rank(b.priority) || compareKeys(a.key, b.key));
 }
 
 const fail = (status, message) => ({ ok: false, status, message });

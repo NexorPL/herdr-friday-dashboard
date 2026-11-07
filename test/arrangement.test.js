@@ -99,7 +99,7 @@ test("a tab with one widget left is that widget", () => {
 test("the tab with the most Friday panes is saved, the first of those on a tie", () => {
   const beside = split("row", "t", [terminal("t1"), block("a", "notes")]);
   const friday = split("row", "f", [block("b", "summary"), block("c", "ledger")]);
-  const other = split("row", "o", [block("d", "jira"), block("e", "prs")]);
+  const other = split("row", "o", [block("d", "favorites"), block("e", "prs")]);
   const widgets = (text) => arrangementFromDoc(text).children.map((c) => c.widget);
   assert.deepEqual(widgets(doc(beside, friday)), ["summary", "ledger"]);
   assert.deepEqual(widgets(doc(friday, other)), ["summary", "ledger"]);
@@ -113,8 +113,8 @@ test("a split directly in a split of the same direction is flattened, keeping th
   ]);
   assert.deepEqual(arrangementFromDoc(doc(root)), { split: "column", weight: 1, children: [{ widget: "summary", weight: 0.5 }, { widget: "prs", weight: 1.5 }, { widget: "ledger", weight: 1 }] });
   // ...also when collapsing a node is what makes the two levels meet
-  const collapsed = split("row", "r", [block("a", "summary"), split("column", "c", [terminal("t"), split("row", "i", [block("b", "prs"), block("d", "jira")])])]);
-  assert.deepEqual(shape(arrangementFromDoc(doc(collapsed))), { split: "row", children: [{ widget: "summary" }, { widget: "prs" }, { widget: "jira" }] });
+  const collapsed = split("row", "r", [block("a", "summary"), split("column", "c", [terminal("t"), split("row", "i", [block("b", "prs"), block("d", "favorites")])])]);
+  assert.deepEqual(shape(arrangementFromDoc(doc(collapsed))), { split: "row", children: [{ widget: "summary" }, { widget: "prs" }, { widget: "favorites" }] });
 });
 
 test("the first tab with a Friday pane is the one saved", () => {
@@ -180,7 +180,7 @@ test("the simulator agrees with the measured tab: the default splits build the m
 test("replaying a plan builds the original shape", () => {
   const leaf = (widget) => ({ widget, weight: 1 });
   const node = (s, ...children) => ({ split: s, weight: 1, children });
-  const a = leaf("summary"), b = leaf("prs"), c = leaf("jira"), d = leaf("ledger"), e = leaf("todos"), f = leaf("notes");
+  const a = leaf("summary"), b = leaf("prs"), c = leaf("favorites"), d = leaf("ledger"), e = leaf("todos"), f = leaf("notes");
   for (const tree of [
     a,
     node("row", a, b),
@@ -264,9 +264,9 @@ test("a summary pane added beside others never runs the default arrangement: pan
 });
 
 test("widgetOfPane: a block's id is its pane's id", () => {
-  const text = doc(split("row", "r", [block("p1", "board"), split("column", "c", [block("p2", "jira"), terminal("p3")])]));
+  const text = doc(split("row", "r", [block("p1", "board"), split("column", "c", [block("p2", "favorites"), terminal("p3")])]));
   assert.equal(widgetOfPane(text, "p1"), "board");
-  assert.equal(widgetOfPane(text, "p2"), "jira");
+  assert.equal(widgetOfPane(text, "p2"), "favorites");
   assert.equal(widgetOfPane(text, "p3"), null, "a terminal");
   assert.equal(widgetOfPane(text, "r"), null, "a split");
   assert.equal(widgetOfPane(text, "gone"), null, "not in the document yet");
@@ -282,7 +282,7 @@ test("a pane's widget not found: reads go on slower, and the widgets keep their 
   assert.equal(lookupDelay(15), 60_000);
 
   const root = { id: "m", content: { tab: "active", pane: { header: { content: { mod: "friday" } } } } };
-  const pane = { block: false, widget: { id: "jira" }, path: "/docs.json", unreadable: false };
+  const pane = { block: false, widget: { id: "favorites" }, path: "/docs.json", unreadable: false };
   assert.equal(layoutHeadsPane(root, pane), true);
   assert.equal(layoutHeadsPane(root, { ...pane, unreadable: true }), false, "the document could not be used");
   assert.equal(layoutHeadsPane(root, { ...pane, path: null }), false, "no document on this platform");

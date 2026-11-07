@@ -216,27 +216,6 @@
                   "gap": 8,
                   "children": [
                     {
-                      "id": "friday-jira",
-                      "type": "block",
-                      "background": "background",
-                      "radius": 10,
-                      "border": {
-                        "width": 1,
-                        "color": "border"
-                      },
-                      "min": 90,
-                      "size": {
-                        "weight": 3
-                      },
-                      "content": {
-                        "mod": "friday",
-                        "props": {
-                          "widget": "jira",
-                          "block": true
-                        }
-                      }
-                    },
-                    {
                       "id": "friday-priorities",
                       "type": "block",
                       "background": "background",

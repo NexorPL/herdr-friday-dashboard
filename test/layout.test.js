@@ -12,7 +12,7 @@ test("layouts/friday.json: every Friday block names a known widget and says it i
   const ids = nodes.map((n) => n.id);
   assert.equal(new Set(ids).size, ids.length, "node ids are unique");
   const mine = nodes.filter((n) => n.content?.mod === "friday");
-  assert.deepEqual(mine.map((n) => n.content.props.widget), ["summary", "meetings", "prs", "jira", "priorities", "todos"]);
+  assert.deepEqual(mine.map((n) => n.content.props.widget), ["summary", "meetings", "prs", "priorities", "todos"]);
   for (const n of mine) {
     assert.ok(widgetById(n.content.props.widget), n.id);
     assert.equal(n.content.props.block, true, `${n.id} sets block, so it never arranges or splits`);
@@ -28,7 +28,7 @@ test("layouts/friday-board.json: the board is first, the rest of the window is t
   const ids = nodes.map((n) => n.id);
   assert.equal(new Set(ids).size, ids.length, "node ids are unique");
   const mine = nodes.filter((n) => n.content?.mod === "friday");
-  assert.deepEqual(mine.map((n) => n.content.props.widget), ["board", "summary", "meetings", "prs", "ledger", "jira", "favorites", "notes"]);
+  assert.deepEqual(mine.map((n) => n.content.props.widget), ["board", "summary", "meetings", "prs", "ledger", "favorites", "notes"]);
   for (const n of mine) {
     assert.ok(widgetById(n.content.props.widget), n.id);
     assert.equal(n.content.props.block, true, `${n.id} sets block, so it never arranges or splits`);

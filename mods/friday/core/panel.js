@@ -48,6 +48,13 @@ export function shownWidgets(root) {
   return panel.children.filter((c) => !c.hidden).map(widgetOf);
 }
 
+/** Commands that close the open panel while the focused tab already holds Friday panes, so it does not repeat them; [] otherwise. */
+export function planAutoHide(root, panes, tab) {
+  const shown = shownWidgets(root);
+  if (shown.length === 0 || !panes.some((p) => p.mod === "friday" && p.tab === tab)) return [];
+  return [...shown.map((w) => ["layout.hide", { id: panelChild(w) }]), ["layout.hide", { id: PANEL }]];
+}
+
 /** Commands for a click on a widget's checkbox. The panel opens with its first widget and closes with its last. */
 export function planPanel(root, widget) {
   const shown = shownWidgets(root);
