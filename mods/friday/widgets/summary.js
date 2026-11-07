@@ -30,7 +30,8 @@ function totals(t, v, now) {
   const state = v.hub.state("ledger", now.getTime());
   const ledger = v.hub.ledger();
   if (ledger && (state === "ok" || state === "stale")) {
-    return div().text_size(14).text_color(t.foreground).child(reviewLine(totalFor(ledger.data, ymd(now))));
+    const line = reviewLine(totalFor(ledger.data, ymd(now)));
+    return line && div().text_size(14).text_color(t.foreground).child(line);
   }
   if (state === "not_set_up") return null;
   if (state === "error") return note(t, `review: ${v.hub.status().ledger?.error ?? "error"}`, "error");

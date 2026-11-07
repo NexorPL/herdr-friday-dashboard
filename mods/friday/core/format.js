@@ -34,9 +34,9 @@ export function minutesText(n) {
   return n % 60 ? `${h} h ${n % 60} min` : `${h} h`;
 }
 
-/** `review 35 min (7 runs)` for a day's summary-table total, `review 0 min` without one. */
+/** `review 35 min (7 runs)` for a day's summary-table total, null without one (no line for a day with no review). */
 export function reviewLine(total) {
-  if (!total) return "review 0 min";
+  if (!total) return null;
   return `review ${minutesText(total.minutes)} (${total.runs} ${total.runs === 1 ? "run" : "runs"})`;
 }
 

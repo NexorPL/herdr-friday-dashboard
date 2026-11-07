@@ -108,7 +108,7 @@ test("minutes and the review line", () => {
   assert.deepEqual([0, 35, 60, 65, 120].map(minutesText), ["0 min", "35 min", "1 h", "1 h 5 min", "2 h"]);
   assert.equal(reviewLine({ runs: 7, minutes: 35 }), "review 35 min (7 runs)");
   assert.equal(reviewLine({ runs: 1, minutes: 5 }), "review 5 min (1 run)");
-  assert.equal(reviewLine(null), "review 0 min");
+  assert.equal(reviewLine(null), null, "a day without a review has no line");
 });
 
 test("only plain https links are opened", () => {
