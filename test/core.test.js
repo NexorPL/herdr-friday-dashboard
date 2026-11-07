@@ -147,7 +147,7 @@ test("widget ids are the contract saved in the owner's tabs", () => {
   assert.equal(widgetById("nope"), null);
   assert.deepEqual(sourcesFor(["summary", "ledger", "ledger"]), ["ledger", "calendar", "jira", "ado"]);
   assert.deepEqual(sourcesFor(["ledger"]), ["ledger"]);
-  assert.deepEqual(DEFAULT_SPLITS, [["todos", "down"], ["meetings", "right"], ["jira", "down"], ["prs", "down"]]);
+  assert.deepEqual(DEFAULT_SPLITS, [["todos", "down"], ["meetings", "right"], ["prs", "down"]]);
   for (const [widget] of DEFAULT_SPLITS) assert.ok(widgetById(widget));
   for (const w of WIDGETS) for (const source of w.sources) assert.ok(SOURCES[source], w.id);
 });
@@ -184,7 +184,6 @@ test("the first pane arranges the default panes only when it is alone in its tab
   assert.deepEqual(planArrangement(alone, DEFAULT_SPLITS), [
     { pane: "p1", direction: "down", mod: "friday", props: { widget: "todos" } },
     { pane: "p1", direction: "right", mod: "friday", props: { widget: "meetings" } },
-    { pane: "p1", direction: "down", mod: "friday", props: { widget: "jira" } },
     { pane: "p1", direction: "down", mod: "friday", props: { widget: "prs" } },
   ]);
   assert.deepEqual(planArrangement([...alone, { pane: "p2", mod: "friday", tab: "t1" }], DEFAULT_SPLITS), [], "an arranged tab is left alone");
@@ -193,7 +192,7 @@ test("the first pane arranges the default panes only when it is alone in its tab
   assert.deepEqual(planArrangement([{ pane: "p1", mod: "files", tab: "t1" }], DEFAULT_SPLITS), [], "nor another mod");
 
   assert.deepEqual(planArrangement(alone, DEFAULT_SPLITS, true), [], "a layout block is not a pane: it never splits the shown tab");
-  assert.equal(planArrangement(alone, DEFAULT_SPLITS, false).length, 4);
+  assert.equal(planArrangement(alone, DEFAULT_SPLITS, false).length, 3);
 
   const all = [{ pane: "p1", mod: "friday" }, { pane: "p9", mod: null }];
   assert.equal(splitTarget({ pane: "p1" }, all), "p1");

@@ -14,7 +14,7 @@ const doc = (...roots) => JSON.stringify({ "herdr-app": { version: 3, value: { s
 const SAMPLE = split("row", "tb0", [
   split("column", "sa", [
     split("row", "s69", [
-      split("column", "s24", [block("pa", "summary", 0.5), block("pb", "prs", 0.5), block("pc", "jira")]),
+      split("column", "s24", [block("pa", "summary", 0.5), block("pb", "prs")]),
       block("pd", "meetings"),
     ]),
     block("pe", "todos"),
@@ -23,7 +23,7 @@ const SAMPLE = split("row", "tb0", [
 const SAMPLE_ARRANGEMENT = {
   split: "column", weight: 1, children: [
     { split: "row", weight: 1, children: [
-      { split: "column", weight: 1, children: [{ widget: "summary", weight: 0.5 }, { widget: "prs", weight: 0.5 }, { widget: "jira", weight: 1 }] },
+      { split: "column", weight: 1, children: [{ widget: "summary", weight: 0.5 }, { widget: "prs", weight: 1 }] },
       { widget: "meetings", weight: 1 },
     ] },
     { widget: "todos", weight: 1 },
@@ -163,10 +163,9 @@ test("the split plan of the measured tab: the first leaf first, outer levels bef
   assert.deepEqual(splitPlan(SAMPLE_ARRANGEMENT), {
     first: "summary",
     splits: [
-      { anchor: 0, leaf: 4, direction: "down", widget: "todos" },
-      { anchor: 0, leaf: 3, direction: "right", widget: "meetings" },
+      { anchor: 0, leaf: 3, direction: "down", widget: "todos" },
+      { anchor: 0, leaf: 2, direction: "right", widget: "meetings" },
       { anchor: 0, leaf: 1, direction: "down", widget: "prs" },
-      { anchor: 1, leaf: 2, direction: "down", widget: "jira" },
     ],
   });
 });
@@ -201,12 +200,12 @@ test("resizes match by position, on inner nodes too, and treat a missing size as
   const live = rebuilt(SAMPLE_ARRANGEMENT);
   const sized = JSON.parse(JSON.stringify(SAMPLE_ARRANGEMENT));
   sized.children[0].weight = 3; // an inner split
-  sized.children[0].children[0].children[2].weight = 0.25; // a leaf
+  sized.children[0].children[0].children[1].weight = 0.25; // a leaf
   const calls = resizePlan(sized, live);
-  assert.equal(calls.length, 4, "the two 0.5s differ from the rebuilt tab's missing sizes as well");
+  assert.equal(calls.length, 3, "the 0.5 differs from the rebuilt tab's missing size as well");
   const row = live.children[0];
   assert.deepEqual(calls[0], { id: row.id, weight: 3 });
-  assert.deepEqual(calls.at(-1), { id: row.children[0].children[2].id, weight: 0.25 });
+  assert.deepEqual(calls.at(-1), { id: row.children[0].children[1].id, weight: 0.25 });
   assert.deepEqual(resizePlan({ ...SAMPLE_ARRANGEMENT, weight: 7 }, { ...live }).some((c) => c.id === live.id), false, "the root has no size");
 });
 
