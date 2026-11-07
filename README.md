@@ -1,8 +1,8 @@
 # Friday for herdr-app
 
-Friday is a work dashboard for [herdr-app](https://github.com/herdrdev/herdr-app), written as one JavaScript mod (`mods/friday`). A Friday tab holds several panes of the mod, each showing one widget (summary, review ledger, and more in later phases). herdr-app moves, resizes and splits the panes. Nothing runs when herdr-app is closed.
+Friday is a work dashboard for [herdr-app](https://github.com/herdrdev/herdr-app), written as one JavaScript mod (`mods/friday`). A Friday tab holds several panes of the mod, each showing one widget: summary, meetings, Jira issues and favorites, Azure DevOps pull requests, the review ledger, priorities, todos, notes and a board. herdr-app moves, resizes and splits the panes. Nothing runs when herdr-app is closed.
 
-Checked against herdr-app 0.1.12. Scope and design: `.ai/specs/product-brief.md` and `.ai/specs/2026-11-02-friday-on-herdr-app.md`.
+Checked against herdr-app 0.1.12.
 
 ## Install
 
