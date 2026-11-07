@@ -50,7 +50,7 @@ function hash(text) {
 
 /** What identifies a source's configuration: its records and data only count while it matches. */
 export function sourceKey(source, values) {
-  if (source === "ledger") return resolvePath(values.ledger.path);
+  if (source === "ledger") return values.ledger.path ? resolvePath(values.ledger.path) : "ledger:";
   if (source === "calendar") return `calendar:${values.calendar.email ?? ""}`;
   if (source === "jira") {
     const j = values.jira;
@@ -167,7 +167,10 @@ export class Hub {
     this.attempted[source] = now;
     const prev = (shared(STATUS) ?? {})[source];
     let next;
-    if (source === "ledger") {
+    if (source === "ledger" && !this.settings.values.ledger.path) {
+      if (shared(LEDGER)) setShared(LEDGER, null);
+      next = { ...succeeded(now), ok_at: null, not_set_up: true, for: key };
+    } else if (source === "ledger") {
       const r = await loadLedger(readTextFile, key);
       if (r.state !== "ok") {
         next = { ...failed(prev, now, interval, { message: r.error }), for: key };
@@ -311,7 +314,7 @@ export class Hub {
   /** The ledger as shared, only while it belongs to the configured path. */
   ledger() {
     const l = shared(LEDGER);
-    return l && l.path === this.key("ledger") ? l : null;
+    return l && l.path === this.key("ledger") && !this.status().ledger?.not_set_up ? l : null;
   }
 
   /** Today's and tomorrow's meetings as shared, only while they belong to the configured calendar. */

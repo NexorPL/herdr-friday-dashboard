@@ -29,7 +29,7 @@ export class SettingsDialog {
     this.input.on("submit", (_e, cx) => this.save(cx));
     cx.spawn(async (cx) => {
       this.settings = await loadSettings();
-      this.input.set_value(this.settings.values.ledger.path);
+      this.input.set_value(this.settings.values.ledger.path ?? "");
       cx.notify();
     });
     // The checklist follows the status records, which another pane's hub keeps writing.
@@ -44,7 +44,8 @@ export class SettingsDialog {
         await saveSetting("ledger.path", value);
         this.settings = await loadSettings();
         setShared(SETTINGS_REV, Date.now());
-        try {
+        if (value === "") this.message = { text: "Review ledger is off.", state: "ok" };
+        else try {
           this.message = await checkLedger(value, home(), await loadLedger(readTextFile, resolvePath(value)), exists);
         } catch (e) {
           this.message = { text: `Saved, but the check failed: ${e?.message ?? e}`, state: "error" };
@@ -84,7 +85,7 @@ export class SettingsDialog {
             .child(div().w(110).flex_none().child(r.label))
             .child(div().flex_1().truncate().text_size(11).text_color(t.dim).child(r.detail)))))
         .child(this.section(t, "ledger", "Review ledger",
-          div().text_size(11).text_color(t.dim).child("The markdown file your review hook writes. Friday only reads it."),
+          div().text_size(11).text_color(t.dim).child("Optional. A markdown file that logs your PR reviews, for example ~/pr-reviews.md; the format is in the README. Friday only reads it. Leave empty to keep the ledger off."),
           Input.new(this.input).h(32).px(10).rounded(8).border_1().border_color(t.input).bg(t.background).text_size(12.5).text_color(t.foreground),
           h_flex().gap(8).items_center()
             .child(button(t, "set-save", "Save", (_e, cx) => this.save(cx), true))

@@ -24,10 +24,33 @@ function link(t, id, text, url, width) {
     .child(text);
 }
 
+const SAMPLE = [
+  "## Summary",
+  "| Day | Runs | Minutes |",
+  "|---|---|---|",
+  "| 2026-11-05, Thursday | 7 | 35 |",
+  "",
+  "## 2026-11-05, Thursday",
+  "| Task | PR | Runs | Times | Minutes |",
+  "|---|---|---|---|---|",
+  "| [PROJ-11](https://jira.example/browse/PROJ-11) | [!501](https://dev.example/pr/501) | 3 | 09:20, 12:57, 18:07 | 15 |",
+];
+
+/** Shown while no ledger file is set: what the file is for and how it must look. */
+function setupHelp(t, v) {
+  return v_flex().size_full().overflow_y_scrollbar().p(12).gap(8)
+    .child(div().text_size(12).font_semibold().child("Review ledger (optional)"))
+    .child(note(t, "For reviewers without a review bot: a markdown file that your own script or hook keeps up, one row per reviewed PR. Friday shows the days and logs the minutes to Jira. It never writes the file."))
+    .child(note(t, "The file looks like this. Cells are read by position, so the header text does not matter; a Summary table gives each day's total, and a section per day lists the PRs."))
+    .child(v_flex().gap(1).p(8).rounded(6).bg(t.hover).children(SAMPLE.map((line) => div().text_size(11).text_color(t.muted).child(line || " "))))
+    .child(h_flex().child(button(t, "led-settings", "Set the file", () => v.openSettings("ledger"))));
+}
+
 export function renderLedger(v) {
   const t = theme();
   const state = v.hub.state("ledger");
   const ledger = v.hub.ledger();
+  if (state === "not_set_up") return setupHelp(t, v);
   if (!ledger) {
     const error = v.hub.status().ledger?.error;
     return v_flex().size_full().p(12).gap(8)

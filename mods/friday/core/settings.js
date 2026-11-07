@@ -9,10 +9,10 @@ const path = (key, dflt) => ({ key, kind: "path", default: dflt });
 
 /**
  * In the order Settings shows them. A `text` key with a null default is required by its widgets.
- * Each phase adds its own keys here (Phase 3: calendar.* and notifications.sound; Phase 2: jira.*; Phase 4: azure_devops.*).
+ * `path` keys are null by default too: unset means the feature is off. Each phase adds its own keys here (Phase 3: calendar.* and notifications.sound; Phase 2: jira.*; Phase 4: azure_devops.*).
  */
 export const SCHEMA = [
-  path("ledger.path", "~/pr-reviews.md"),
+  path("ledger.path", null), // optional: without it the review ledger stays off
   { key: "calendar.email", kind: "text", default: null },
   { key: "calendar.interval", kind: "interval", default: "10m" },
   { key: "calendar.alerts", kind: "durations", default: ["5m"] },
@@ -64,7 +64,7 @@ export function resolveSettings(raw, schema = SCHEMA) {
     const [section, name] = entry.key.split(".");
     const given = isObject(source[section]) ? source[section][name] : undefined;
     let value = entry.default;
-    if (given !== undefined && !(given === null && entry.kind === "text")) {
+    if (given !== undefined && !(given === null && (entry.kind === "text" || entry.kind === "path"))) {
       const ok = check(entry, given);
       if (ok === undefined) invalid.push(entry.key);
       else value = ok;
@@ -96,7 +96,7 @@ export class SettingsError extends Error {
 /**
  * Returns a copy of the parsed settings.json with one key set, keeping every key Friday does not
  * know. Throws a SettingsError naming the key when the value is invalid. An empty string for a
- * text key removes it.
+ * text or path key removes it.
  */
 export function setKey(raw, key, value, schema = SCHEMA) {
   const entry = byKey(schema).get(key);
@@ -104,7 +104,7 @@ export function setKey(raw, key, value, schema = SCHEMA) {
   const [section, name] = key.split(".");
   const next = isObject(raw) ? JSON.parse(JSON.stringify(raw)) : {};
   if (!isObject(next[section])) next[section] = {};
-  if (entry.kind === "text" && (value === "" || value === null)) {
+  if ((entry.kind === "text" || entry.kind === "path") && (value === "" || value === null)) {
     delete next[section][name];
   } else {
     if (check(entry, value) === undefined) throw new SettingsError(key, "invalid value");

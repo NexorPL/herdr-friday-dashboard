@@ -86,6 +86,32 @@ The button stands before the tabs because herdr-app's tab bar is read-only and d
 
 Keep the Friday tab open anyway. Another layout starts its mods fresh, while mod panes in a tab stay alive, so the tab keeps the meeting alerts running whichever layout is shown.
 
+## Review ledger (optional)
+
+The review ledger is for reviewers who have no review bot in CI and track their own pull-request reviews. It stays off until you set a file: Settings, Review ledger, or `ledger.path` in `settings.json`. Without it, the Summary shows no review line and the ledger widget only explains this.
+
+Friday reads the file and never writes it. Your own script or hook keeps it up. Cells are read by position, so the header text can be in any language:
+
+```md
+## Summary
+
+| Day | Runs | Minutes |
+|---|---|---|
+| 2026-11-05, Thursday | 7 | 35 |
+
+## 2026-11-05, Thursday
+
+| Task | PR | Runs | Times | Minutes |
+|---|---|---|---|---|
+| [PROJ-11](https://jira.example/browse/PROJ-11) | [!501](https://dev.example/pr/501) | 3 | 09:20, 12:57, 18:07 | 15 |
+| — | [!499](https://dev.example/pr/499) | 1 | 10:02 | 5 |
+```
+
+- The Summary table gives each day's total, and Friday shows it as written, never recounted.
+- A section per day starts with `## YYYY-MM-DD`; its rows are the Task (a Jira link, or `—`), the PR as `[!number](link)`, the number of runs, the times of day, and the minutes.
+- A row Friday cannot read is counted and shown as skipped, not hidden.
+- With Jira set up, a day's rows can be logged as worklogs on each task (Log day).
+
 ## Data
 
 Friday keeps its files in `${appHome()}/data/friday/` (by default `~/.config/herdr-app/data/friday/`). Settings and secrets are plain text there, protected only by your user account's file permissions.

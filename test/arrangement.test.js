@@ -17,7 +17,7 @@ const SAMPLE = split("row", "tb0", [
       split("column", "s24", [block("pa", "summary", 0.5), block("pb", "prs", 0.5), block("pc", "jira")]),
       block("pd", "meetings"),
     ]),
-    block("pe", "ledger"),
+    block("pe", "todos"),
   ]),
 ]);
 const SAMPLE_ARRANGEMENT = {
@@ -26,7 +26,7 @@ const SAMPLE_ARRANGEMENT = {
       { split: "column", weight: 1, children: [{ widget: "summary", weight: 0.5 }, { widget: "prs", weight: 0.5 }, { widget: "jira", weight: 1 }] },
       { widget: "meetings", weight: 1 },
     ] },
-    { widget: "ledger", weight: 1 },
+    { widget: "todos", weight: 1 },
   ],
 };
 
@@ -163,7 +163,7 @@ test("the split plan of the measured tab: the first leaf first, outer levels bef
   assert.deepEqual(splitPlan(SAMPLE_ARRANGEMENT), {
     first: "summary",
     splits: [
-      { anchor: 0, leaf: 4, direction: "down", widget: "ledger" },
+      { anchor: 0, leaf: 4, direction: "down", widget: "todos" },
       { anchor: 0, leaf: 3, direction: "right", widget: "meetings" },
       { anchor: 0, leaf: 1, direction: "down", widget: "prs" },
       { anchor: 1, leaf: 2, direction: "down", widget: "jira" },
@@ -229,7 +229,7 @@ test("no resize at all when the shapes differ", () => {
   assert.equal(resizePlan({ ...SAMPLE_ARRANGEMENT, split: "row" }, live), null);
   assert.equal(resizePlan({ ...SAMPLE_ARRANGEMENT, children: SAMPLE_ARRANGEMENT.children.slice(1).concat({ widget: "todos", weight: 1 }) }, live), null);
   const otherWidget = JSON.parse(JSON.stringify(SAMPLE_ARRANGEMENT));
-  otherWidget.children[1].widget = "todos";
+  otherWidget.children[1].widget = "notes";
   assert.equal(resizePlan(otherWidget, live), null);
   const nested = split("column", "r", [split("column", "c", [block("a", "summary"), block("b", "prs")]), block("d", "ledger")]);
   const flat = arrangementFromDoc(doc(nested));

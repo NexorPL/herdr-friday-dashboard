@@ -32,6 +32,7 @@ function totals(t, v, now) {
   if (ledger && (state === "ok" || state === "stale")) {
     return div().text_size(14).text_color(t.foreground).child(reviewLine(totalFor(ledger.data, ymd(now))));
   }
+  if (state === "not_set_up") return null;
   if (state === "error") return note(t, `review: ${v.hub.status().ledger?.error ?? "error"}`, "error");
   return note(t, "review: reading the ledger…");
 }
@@ -45,5 +46,5 @@ export function renderSummary(v) {
     .child(div().text_size(14).text_color(t.muted).child(dateText(now)))
     .child(div().h(6))
     .when(Boolean(notice), (el) => el.child(notice))
-    .child(v.hub.settings.state === "loading" ? note(t, "loading…") : v.hub.settings.saved ? totals(t, v, now) : checklistRows(t, v, now));
+    .child(v.hub.settings.state === "loading" ? note(t, "loading…") : v.hub.settings.saved ? (totals(t, v, now) ?? div()) : checklistRows(t, v, now));
 }

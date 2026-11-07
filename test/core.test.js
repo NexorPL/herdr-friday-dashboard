@@ -147,7 +147,7 @@ test("widget ids are the contract saved in the owner's tabs", () => {
   assert.equal(widgetById("nope"), null);
   assert.deepEqual(sourcesFor(["summary", "ledger", "ledger"]), ["ledger", "calendar", "jira", "ado"]);
   assert.deepEqual(sourcesFor(["ledger"]), ["ledger"]);
-  assert.deepEqual(DEFAULT_SPLITS, [["ledger", "down"], ["meetings", "right"], ["jira", "down"], ["prs", "down"]]);
+  assert.deepEqual(DEFAULT_SPLITS, [["todos", "down"], ["meetings", "right"], ["jira", "down"], ["prs", "down"]]);
   for (const [widget] of DEFAULT_SPLITS) assert.ok(widgetById(widget));
   for (const w of WIDGETS) for (const source of w.sources) assert.ok(SOURCES[source], w.id);
 });
@@ -182,7 +182,7 @@ test("the first pane arranges the default panes only when it is alone in its tab
   const { planArrangement, splitTarget } = await import("../mods/friday/core/arrange.js");
   const alone = [{ pane: "p1", mod: "friday", tab: "t1" }];
   assert.deepEqual(planArrangement(alone, DEFAULT_SPLITS), [
-    { pane: "p1", direction: "down", mod: "friday", props: { widget: "ledger" } },
+    { pane: "p1", direction: "down", mod: "friday", props: { widget: "todos" } },
     { pane: "p1", direction: "right", mod: "friday", props: { widget: "meetings" } },
     { pane: "p1", direction: "down", mod: "friday", props: { widget: "jira" } },
     { pane: "p1", direction: "down", mod: "friday", props: { widget: "prs" } },

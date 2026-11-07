@@ -4,7 +4,7 @@ import { resolveSettings, settingsStatus, setKey, SettingsError, expandHome, SCH
 
 // Phase 1 has only ledger.path; these entries stand in for the kinds later phases add.
 const TEST = [
-  { key: "ledger.path", kind: "path", default: "~/pr-reviews.md" },
+  { key: "ledger.path", kind: "path", default: null },
   { key: "x.site", kind: "text", default: null },
   { key: "x.email", kind: "text", default: null },
   { key: "x.mode", kind: "choice", options: ["scoped", "classic"], default: "scoped" },
@@ -24,7 +24,7 @@ test("the schema holds the ledger path, the calendar keys, the Jira keys and the
 
 test("an empty file gives the defaults", () => {
   const { values, invalid, unknown } = resolveSettings({});
-  assert.equal(values.ledger.path, "~/pr-reviews.md");
+  assert.equal(values.ledger.path, null, "the ledger is off until a path is set");
   assert.deepEqual([invalid, unknown], [[], []]);
   assert.equal(settingsStatus(invalid), null);
   const t = resolve({}).values;
@@ -87,6 +87,11 @@ test("wrong types are invalid, a blank required text counts as unset", () => {
   assert.equal(resolve({ x: { site: null } }).invalid.length, 0);
 });
 
+test("a null path means the ledger is off, not invalid", () => {
+  const r = resolveSettings({ ledger: { path: null } });
+  assert.deepEqual([r.invalid, r.values.ledger.path], [[], null]);
+});
+
 test("unknown keys are reported, files.dir included", () => {
   const { unknown } = resolveSettings({ version: 1, files: { dir: "~/friday" }, ledger: { nope: 1 }, extra: 5 });
   assert.deepEqual(unknown, ["files.dir", "ledger.nope", "extra"]);
@@ -107,7 +112,8 @@ test("setKey sets one key, keeps the unknown ones, and does not touch its input"
 
 test("setKey names the key it refuses", () => {
   assert.throws(() => setKey({}, "x.interval", "0s", TEST), (e) => e instanceof SettingsError && e.key === "x.interval");
-  assert.throws(() => setKey({}, "ledger.path", ""), (e) => e.key === "ledger.path");
+  assert.throws(() => setKey({}, "ledger.path", 5), (e) => e.key === "ledger.path");
+  assert.deepEqual(setKey({ version: 1, ledger: { path: "D:/x.md" } }, "ledger.path", "").ledger, {}, "an empty path turns the ledger off");
   assert.throws(() => setKey({}, "nope.key", 1), (e) => e.key === "nope.key");
   assert.throws(() => setKey({}, "tokens.interval", "1m"), (e) => e.key === "tokens.interval", "a later phase's key is unknown now");
 });
