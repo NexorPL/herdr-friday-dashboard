@@ -9,3 +9,6 @@ node_modules/
 # herdr-app writes these into every mod folder
 mods/**/jsconfig.json
 mods/**/gpui-kit.d.ts
+
+# Working notes, specs and agent runs (kept out of the public repo)
+.ai/
