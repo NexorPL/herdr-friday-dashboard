@@ -38,7 +38,7 @@ Status: Phases 1 to 5 are built: the summary, ledger, meetings and alerts, Jira,
 | Todos, notes, priorities, favorites | `mods/friday/core/mdfile.js`, `core/lists.js`, `widgets/lists.js` | Plain `.md` files owned by the owner; never delete a line or rewrite one Friday did not change; keep CRLF, BOM and a missing final newline (R10). |
 | Tokens and prices (Later: transcripts over 1 MiB are unreadable, see the spec Phasing) | TODO: `mods/friday/core/tokens/`, `core/pricing.js` (Phase 6); `herdr-friday/src/tokens/`, `src/pricing.rs` | Headline tokens = input + cache creation + output; cache read is its own column (R02). Copilot CLI is Later (D41). |
 | Screenshots for PRs | `scripts/demo-home.mjs` | Only from a sandbox app home (`HERDR_APP_HOME`) seeded with fixtures, never from the owner's real one. |
-| CI | `.github/workflows/ci.yml` | `node --test` on Linux for pull requests, on Linux, macOS and Windows on `main`; Actions minutes are limited, so run the gate locally before pushing. |
+| CI | `.github/workflows/ci.yml` | `node --test` on Linux for pull requests and `main`, on Linux, macOS and Windows only when started by hand (`gh workflow run CI`); Actions minutes are limited, so run the gate locally before pushing. |
 | Product decisions, the brief | `.ai/specs/product-brief.md`, `.ai/specs/research/` | Non-goals, rules and decisions are a protected contract; a change needs an owner-approved superseding row. |
 
 ## Agents and models
