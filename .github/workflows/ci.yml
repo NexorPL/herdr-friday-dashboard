@@ -1,17 +1,30 @@
 name: CI
 
-# Actions minutes are limited: pull requests run on Linux only, main on all three systems.
+# Actions minutes are limited (macOS bills 10x, Windows 2x on a private repo): pull requests and
+# main run on Linux only, a manual run (Actions > CI > Run workflow) on all three systems.
 on:
-  pull_request:
   push:
     branches: [main]
+    paths-ignore: ['**.md', 'docs/**', '.ai/**']
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore: ['**.md', 'docs/**', '.ai/**']
+  workflow_dispatch:
+
+# A new push to a PR cancels its older run; runs on main always finish.
+concurrency:
+  group: ci-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
+    # Draft PRs run nothing until they are marked ready.
+    if: github.event_name != 'pull_request' || !github.event.pull_request.draft
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]') }}
+        os: ${{ github.event_name == 'workflow_dispatch' && fromJSON('["ubuntu-latest", "macos-latest", "windows-latest"]') || fromJSON('["ubuntu-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
