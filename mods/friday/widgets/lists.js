@@ -136,16 +136,17 @@ function renderList(v, rows, draw) {
       .when(i === v.cursor, (el) => el.bg(t.selected))
       .hover((s) => s.bg(t.hover))
       .on_click((e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); draw.click(v, r, cx, e); cx.notify(); })
-      .child(draw.row(t, r))));
+      .child(draw.row(t, r))
+      .when(Boolean(draw.action), (el) => el.child(draw.action(t, r)))));
 }
 
 export function renderTodos(v) {
   const t = theme();
   return renderList(v, todoList(v), {
     click: (v2, r, cx) => toggleTodoRow(v2, r, cx),
-    row: (t2, r) => h_flex().gap(8).flex_1().child(div().w(20).flex_none().text_size(12.5).text_color(r.done ? t2.dim : t2.accent).child(r.done ? "[x]" : "[ ]"))
-      .child(tip(div().flex_1().truncate().text_size(12.5).text_color(r.done ? t.dim : t.foreground).child(r.body), r.body))
-      .child(button(t, `todos-board-${r.line}`, "To board (b)", (_e, cx) => todoToBoard(v, r, cx))),
+    row: (t2, r) => h_flex().gap(8).flex_1().min_w(0).child(div().w(20).flex_none().text_size(12.5).text_color(r.done ? t2.dim : t2.accent).child(r.done ? "[x]" : "[ ]"))
+      .child(tip(div().flex_1().truncate().text_size(12.5).text_color(r.done ? t.dim : t.foreground).child(r.body), r.body)),
+    action: (t2, r) => button(t2, `todos-board-${r.line}`, "To board (b)", (_e, cx) => todoToBoard(v, r, cx)), // beside the row, so a long text never pushes it out of the pane
   });
 }
 
@@ -162,13 +163,13 @@ export function renderNotes(v) {
 export function renderPriorities(v) {
   return renderList(v, priorityList(v), {
     click: (_v, r, _cx, e) => { if (r.url && e.click_count >= 2) openLink(r.url); }, // a click selects; a double-click or Enter opens the issue
-    row: (t, r) => h_flex().gap(8).flex_1()
+    row: (t, r) => h_flex().gap(8).flex_1().min_w(0)
       .child(rowAction(t, `pri-open-${r.n}`, "↗", "Open in Jira (Enter)", r.url ? () => openLink(r.url) : null))
       .child(rowAction(t, `pri-log-${r.n}`, "✎", "Log time (l)", (_e, cx) => { v.cursor = r.n - 1; logPriority(v, r); cx.notify(); }))
       .child(div().w(20).flex_none().text_size(11).text_color(t.dim).child(String(r.n)))
       .child(div().w(76).flex_none().truncate().text_size(12).text_color(t.accent).child(r.key ?? ""))
       .child(tip(div().flex_1().truncate().text_size(12.5).child(r.label), r.label))
-      .child(div().w(84).flex_none().truncate().text_size(11).text_color(t.dim).child(r.status))
-      .child(button(t, `pri-board-${r.n}`, "To board (b)", (_e, cx) => todoToBoard(v, r, cx))),
+      .child(div().w(84).flex_none().truncate().text_size(11).text_color(t.dim).child(r.status)),
+    action: (t, r) => button(t, `pri-board-${r.n}`, "To board (b)", (_e, cx) => todoToBoard(v, r, cx)),
   });
 }
