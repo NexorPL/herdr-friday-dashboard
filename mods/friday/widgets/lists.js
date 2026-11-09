@@ -81,6 +81,17 @@ export function todoToBoard(v, row, cx) {
   });
 }
 
+/** `l` or the row's ✎: the log-time dialog for the priority's Jira key, as for a favorite; off for a row with no key or an issue Jira did not return. */
+export function logPriority(v, row) {
+  if (!row) return;
+  if (!row.key) v.message = "no Jira key on this row: time logging is off";
+  else if (!row.summary) v.message = "issue not loaded or not found in Jira: time logging is off";
+  else {
+    v.message = null;
+    v.openLogTime(row);
+  }
+}
+
 /** Enter in the note input: one write at a time, then the file is read again. */
 export function submitNote(v, cx) {
   if (v.busy) return;
@@ -146,6 +157,7 @@ export function renderPriorities(v) {
     click: (_v, r, _cx, e) => { if (r.url && e.click_count >= 2) openLink(r.url); }, // a click selects; a double-click or Enter opens the issue
     row: (t, r) => h_flex().gap(8).flex_1()
       .child(rowAction(t, `pri-open-${r.n}`, "↗", "Open in Jira (Enter)", r.url ? () => openLink(r.url) : null))
+      .child(rowAction(t, `pri-log-${r.n}`, "✎", "Log time (l)", (_e, cx) => { v.cursor = r.n - 1; logPriority(v, r); cx.notify(); }))
       .child(div().w(20).flex_none().text_size(11).text_color(t.dim).child(String(r.n)))
       .child(div().w(76).flex_none().truncate().text_size(12).text_color(t.accent).child(r.key ?? ""))
       .child(tip(div().flex_1().truncate().text_size(12.5).child(r.label), r.label))
