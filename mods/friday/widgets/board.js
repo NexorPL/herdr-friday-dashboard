@@ -9,6 +9,7 @@ import { SETTINGS_REV } from "../hub.js";
 import { parseBoard, priorityCards, nextSelection, selectMoved, movePlace, cardsWithoutStatus, cardFace, dropPlace, dropSlot } from "../core/board.js";
 import { moveOnBoard, flagOnBoard, importToBoard, dismissImport } from "../store.js";
 import { openLink } from "../open.js";
+import { mix } from "../core/color.js";
 import { button, note, stateColor, tip } from "../ui.js";
 import { editFile } from "./lists.js";
 
@@ -157,11 +158,14 @@ function statusColor(t, issue) {
 function cardView(v, t, col, card, selected, issue) {
   const { title, detail } = cardFace(card, issue);
   const done = col.id === "done";
+  const red = t.ansi1;
+  const priority = card.flag && !done;
   return v_flex().id(`bd-${col.id}-${card.line}`).flex_none().gap(6).p(10).rounded(8).border_1().shadow_sm().cursor_pointer()
-    .bg(selected ? t.selected : t.background)
-    .border_color(selected || card.flag ? t.accent : t.border)
+    .when(priority, (el) => el.border_2()) // a priority: red flag, red border, a red tint on the whole card
+    .bg(priority ? mix(t.background, red, selected ? 0.38 : 0.2) : selected ? t.selected : t.background) // t.selected is see-through: mixed it came out light and opaque
+    .border_color(selected ? t.accent : priority ? red : t.border)
     .when(v.drag?.card.line === card.line, (el) => el.opacity(0.5))
-    .hover((s) => s.bg(t.hover))
+    .hover((s) => s.bg(priority ? mix(t.background, red, 0.3) : t.hover))
     .on_hover((over, cx) => { if (over) setOver(v, { column: col.id, card }, cx); }) // leaving keeps the target, so crossing a gap does not move the mark
     .on_mouse_down("left", (_e, cx) => {
       cx.stop_propagation(); // the board's own press cancels a drag
@@ -171,11 +175,12 @@ function cardView(v, t, col, card, selected, issue) {
       if (v.handle) v.handle.focus();
       cx.notify();
     })
-    .child(tip(div().max_h(53).overflow_hidden().line_height(1.35).text_size(13).text_color(done ? t.dim : t.foreground).child(title), card.body))
+    .child(h_flex().gap(6).items_start()
+      .when(card.flag && !done, (el) => el.child(div().flex_none().text_size(14).text_color(red).child("⚑")))
+      .child(tip(div().flex_1().min_w(0).max_h(53).overflow_hidden().line_height(1.35).text_size(13).text_color(done ? t.dim : t.foreground).child(title), card.body)))
     .when(Boolean(detail), (el) => el.child(tip(div().truncate().text_size(11).text_color(t.dim).child(detail), detail)))
-    .when(Boolean(card.key) || card.flag, (el) => el.child(h_flex().flex_wrap().gap(4).items_center()
-      .when(card.flag, (row) => row.child(pill("priority", t.accent)))
-      .when(Boolean(card.key), (row) => row.child(pill(card.key, t.dim)))
+    .when(Boolean(card.key), (el) => el.child(h_flex().flex_wrap().gap(4).items_center()
+      .child(pill(card.key, t.dim))
       .when(Boolean(issue), (row) => row.child(pill(issue.status, statusColor(t, issue))))));
 }
 
@@ -183,11 +188,12 @@ function cardView(v, t, col, card, selected, issue) {
 function priorityStrip(v, t, board, sel, issues) {
   const cards = priorityCards(board);
   if (cards.length === 0) return null;
-  return h_flex().id("bd-priorities").flex_none().flex_wrap().gap(6).items_center().px(8).py(4).rounded(8).border_1().border_color(t.accent)
-    .child(div().text_size(11).font_semibold().text_color(t.accent).child("Priority"))
+  const red = t.ansi1;
+  return h_flex().id("bd-priorities").flex_none().flex_wrap().gap(6).items_center().px(8).py(4).rounded(8).border_1().border_color(red).bg(mix(t.background, red, 0.12))
+    .child(div().text_size(11).font_semibold().text_color(red).child("⚑ Priority"))
     .children(cards.map((card) => h_flex().id(`bd-prio-${card.line}`).max_w(240).h(24).px(8).items_center().rounded(8).border_1().cursor_pointer()
-      .border_color(sel.card?.line === card.line ? t.accent : t.border)
-      .bg(sel.card?.line === card.line ? t.selected : t.background)
+      .border_color(sel.card?.line === card.line ? t.accent : red)
+      .bg(mix(t.background, red, sel.card?.line === card.line ? 0.38 : 0.2))
       .hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => { v.sel = { column: card.column, card }; if (v.handle) v.handle.focus(); cx.notify(); })
       .child(tip(div().truncate().text_size(12).child(cardFace(card, issues.get(card.key)).title), card.body))));
