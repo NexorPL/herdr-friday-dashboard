@@ -1,17 +1,24 @@
-// board.md (D43, R13): a kanban board in one plain file. A column is a heading (TODO, Priority,
-// In progress, Done) and a card is a line under it. Friday adds a card, moves a card's lines or
-// adds a missing heading; it changes no line's text and deletes none. Pure: no `herdr` import; the
+// board.md (D43, D44, R13): a kanban board in one plain file. A column is a heading (TODO, In
+// progress, Done) and a card is a line under it. A card is a priority when its text starts with
+// "! ". Friday adds a card, moves a card's lines, adds a missing heading, or (D44) changes the one
+// first line of a card the owner edits or flags; it deletes no line and changes no other. Pure: no `herdr` import; the
 // file reads and writes are passed in as `io` (see core/mdfile.js).
 import { jiraKeys } from "./jira.js";
 import { MARKER, todoRows, priorityRows } from "./lists.js";
-import { HEADING, checkboxOf, cleanLine, editMd, moveLines, onlyMoved, parseMd, renderMd } from "./mdfile.js";
+import { HEADING, checkboxOf, cleanLine, editMd, moveLines, onlyLineChanged, onlyMoved, parseMd, renderMd } from "./mdfile.js";
 
 export const COLUMNS = [
   { id: "todo", title: "TODO" },
-  { id: "priority", title: "Priority" },
   { id: "progress", title: "In progress" },
   { id: "done", title: "Done" },
 ];
+
+/** The column D43 had between TODO and In progress. It is read from a file that still has it and drawn while it holds cards; Friday never creates it. */
+const LEGACY = { id: "priority", title: "Priority" };
+const READ = [COLUMNS[0], LEGACY, ...COLUMNS.slice(1)];
+
+const FLAG = /^!\s+/;
+const PREFIX = /^\s*(?:[-*+]|\d+[.)])\s+/;
 
 /** The line that says the lists were imported or the offer dismissed (E01-S03 writes it; it is never a card). */
 export const IMPORT_MARKER = "<!-- friday: lists imported -->";
@@ -22,10 +29,10 @@ const comment = (t) => /^\s*<!--.*-->\s*$/.test(t);
 function headingColumn(text) {
   if (!HEADING.test(text)) return null;
   const name = text.replace(/^\s*#{1,6}/, "").replace(/\s+#*\s*$/, "").trim().toLowerCase();
-  return COLUMNS.find((c) => c.title.toLowerCase() === name) ?? null;
+  return READ.find((c) => c.title.toLowerCase() === name) ?? null;
 }
 
-/** True for a line that is exactly one of the four column headings (the only heading a move may add). */
+/** True for a line that is exactly one of the three column headings (the only heading a move may add). */
 export const isColumnHeading = (text) => COLUMNS.some((c) => text === `## ${c.title}`);
 
 /**
@@ -35,7 +42,8 @@ export const isColumnHeading = (text) => COLUMNS.some((c) => text === `## ${c.ti
  * line, which identifies it), block (the texts of all its lines), count (how many lines in the file
  * read exactly so), column (its column id), above (for a duplicate: the text of every line of the file
  * as drawn, of which the first `line` are the ones above it; else null), body (the first line without
- * its list marker), key (its first Jira key or null) }. `outside` counts the lines that are not drawn:
+ * its list marker and priority flag), key (its first Jira key or null), flag (it starts with "! ") }. The
+ * old Priority column is in `columns` only while it has cards. `outside` counts the lines that are not drawn:
  * above the first column heading, under or as any other heading, a repeated column heading, an
  * indented line with no card above it, and code fences; not blank or comment lines.
  */
@@ -43,7 +51,7 @@ export function parseBoard(text) {
   const texts = parseMd(text ?? "").lines.map((l) => l.text); // shared by every duplicate card, so a parse stays linear
   const counts = new Map();
   for (const t of texts) counts.set(t, (counts.get(t) ?? 0) + 1);
-  const columns = COLUMNS.map((c) => ({ ...c, heading: -1, cards: [] }));
+  const columns = READ.map((c) => ({ ...c, heading: -1, cards: [] }));
   let current = null; // a column, or null above the first column heading and under other headings
   let outside = 0;
   let imported = false;
@@ -77,11 +85,12 @@ export function parseBoard(text) {
     current.cards.push({
       line: i, size, text: t, block: texts.slice(i, i + size), count, column: current.id,
       above: count > 1 ? texts : null, // the whole file as drawn; `locate` compares its first `line` entries
-      body: t.replace(MARKER, "").trim(), key: jiraKeys(t)[0] ?? null,
+      body: t.replace(MARKER, "").replace(FLAG, "").trim(), key: jiraKeys(t)[0] ?? null,
+      flag: FLAG.test(t.replace(MARKER, "")), // a priority: "! " after the list marker
     });
     i += size - 1;
   }
-  return { columns, outside, imported, unclosed: open !== null };
+  return { columns: columns.filter((c) => c.id !== LEGACY.id || c.cards.length > 0), outside, imported, unclosed: open !== null };
 }
 
 /** `{ column, at: "top" }` for Done (the newest first), `{ column, at: "end" }` elsewhere: where a card lands when it changes column. */
@@ -223,9 +232,62 @@ export function selectCard(board, text) {
   return null;
 }
 
-/** The Jira keys of the cards that take a slot in the poll, in tier order: Priority, then In progress, then TODO (Done takes none). */
+/** The priorities: the flagged cards outside Done, and every card of the old Priority column, in column order. */
+export const priorityCards = (board) => board.columns.filter((c) => c.id !== "done").flatMap((c) => c.cards.filter((x) => x.flag || c.id === LEGACY.id));
+
+/** The Jira keys of the cards that take a slot in the poll, in tier order: priorities, then In progress, then the rest (Done takes none). */
 export function boardKeys(board) {
-  return ["priority", "progress", "todo"].flatMap((id) => board.columns.find((c) => c.id === id).cards.flatMap((c) => (c.key ? [c.key] : [])));
+  const live = board.columns.filter((c) => c.id !== "done");
+  const tiers = [priorityCards(board), live.filter((c) => c.id === "progress").flatMap((c) => c.cards), live.flatMap((c) => c.cards)];
+  return [...new Set(tiers.flat().flatMap((c) => (c.key ? [c.key] : [])))];
+}
+
+/**
+ * `text` with the first line of `card` (a card as drawn) rewritten: `change(rest, flag)` gets the line
+ * after its list marker and priority flag, and returns the new rest and flag. Null when the card is
+ * gone or ambiguous. The other lines of the file are untouched (D44); the guard is `onlyLineChanged`.
+ */
+function rewriteFirstLine(text, card, change) {
+  if (text == null) return null;
+  const doc = parseMd(text);
+  const mine = findCard(parseBoard(text), doc.lines, card);
+  if (!mine) return null;
+  const first = doc.lines[mine.line].text;
+  const prefix = PREFIX.exec(first)?.[0] ?? "";
+  const after = first.slice(prefix.length);
+  const { rest, flag } = change(after.replace(FLAG, ""), FLAG.test(after));
+  doc.lines[mine.line] = { ...doc.lines[mine.line], text: `${prefix}${flag ? "! " : ""}${rest}` };
+  return { text: renderMd(doc), at: mine.line };
+}
+
+/** `text` with the priority flag of `card` set or cleared; null when the card is gone. */
+export const setFlag = (text, card, flag) => rewriteFirstLine(text, card, (rest) => ({ rest, flag }));
+
+/** `text` with the first line of `card` reading `body` (its marker and flag kept); null when the card is gone. Throws on a blank line or one with a line break. */
+export function editCard(text, card, body) {
+  const clean = cleanLine(body);
+  if (clean === null) throw new Error("not a single line");
+  return rewriteFirstLine(text, card, (_rest, flag) => ({ rest: clean, flag }));
+}
+
+/** Sets or clears the flag of a card of board.md; { ok, changed } or { ok: false, message }. */
+export function flagInBoardFile(io, path, card, flag) {
+  return rewriteInBoardFile(io, path, (t) => setFlag(t, card, flag));
+}
+
+/** Rewrites the text of a card of board.md; { ok, changed } or { ok: false, message }. */
+export function editInBoardFile(io, path, card, body) {
+  if (cleanLine(body) === null) return Promise.resolve({ ok: false, message: "Enter one line of text." });
+  return rewriteInBoardFile(io, path, (t) => editCard(t, card, body));
+}
+
+function rewriteInBoardFile(io, path, make) {
+  let at = -1;
+  return editMd(io, path, (t) => {
+    const r = make(t);
+    at = r?.at ?? -1;
+    return r ? r.text : null;
+  }, (before, after) => before === after || (at >= 0 && onlyLineChanged(before, after, at)));
 }
 
 /** How many keyed cards outside Done have no issue in `issues` and are not in `missing` (keys Jira said do not exist, such as UTF-8): the "N cards without status" line. */
@@ -297,16 +359,16 @@ export function selectMoved(board, card, place) {
 }
 
 /**
- * The lines of todos.md and priorities.md that are not on the board yet, as { column, body } in
- * file order: open todos for TODO, done todos for Done, priorities for Priority. A body already on
+ * The lines of todos.md and priorities.md that are not on the board yet, as { column, body, flag? } in
+ * file order, the priorities first: priorities for TODO with the flag, open todos for TODO, done todos for Done. A body already on
  * the board (a card in any column, with or without a checkbox), or already listed, is skipped, and so
  * is a line holding a comment mark, which would open a comment on the board. Its length is the N of the offer.
  */
 export function importCandidates(boardText, todosText, prioritiesText) {
   const seen = new Set(parseBoard(boardText).columns.flatMap((c) => c.cards.flatMap((x) => [x.body, (checkboxOf(x.text)?.body ?? x.body).trim()])));
   const lines = [
+    ...priorityRows(prioritiesText, []).map((r) => ({ column: "todo", body: r.text.trim(), flag: true })),
     ...todoRows(todosText).map((r) => ({ column: r.done ? "done" : "todo", body: r.body.trim() })),
-    ...priorityRows(prioritiesText, []).map((r) => ({ column: "priority", body: r.text.trim() })),
   ];
   return lines.filter(({ body }) => body !== "" && !/<!--|-->/.test(body) && !seen.has(body) && seen.add(body));
 }
@@ -333,7 +395,7 @@ export function importLists(text, todosText, prioritiesText) {
     doc.lines.splice(at, 0, ...texts.map((t, i) => ({ text: t, eol: open && i === texts.length - 1 ? "" : eol })));
   };
   const columns = parseBoard(start).columns;
-  const lines = (id) => adds.filter((a) => a.column === id).map((a) => `- ${a.body}`);
+  const lines = (id) => adds.filter((a) => a.column === id).map((a) => `- ${a.flag ? "! " : ""}${a.body}`);
   // bottom columns first, so the indexes of the ones above stay valid
   for (const c of columns.filter((x) => x.heading >= 0).sort((a, b) => b.heading - a.heading)) {
     const last = c.cards.at(-1);

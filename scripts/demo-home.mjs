@@ -82,8 +82,8 @@ export function seed(dir, { today = new Date(), env = process.env } = {}) {
   writeFileSync(join(home, "data", "friday", "todos.md"), "- [ ] Call the bank\r\n- [x] Book the train\r\n- [ ] Review the contributor guide\r\n");
   writeFileSync(join(home, "data", "friday", "notes.md"), "# Notes\n- 2026-11-04 09:10 Ask Sam about the release date\n- 2026-11-03 16:40 Idea: show the nightly build in the summary\n");
   writeFileSync(join(home, "data", "friday", "priorities.md"), "1. DEMO-12\n2. Prepare the demo\n3. DEMO-7\n");
-  // The board (D43): made-up cards in the four columns, one with an indented line and one with a Jira key.
-  writeFileSync(join(home, "data", "friday", "board.md"), "## TODO\n- Call the bank\n- Review the contributor guide\n  check the new section\n## Priority\n- DEMO-12 ship the import\n## In progress\n- Prepare the demo\n## Done\n- Book the train\n");
+  // The board (D43, D48): made-up cards in the three columns, a flagged one and one in the old Priority column, one with an indented line and one with a Jira key.
+  writeFileSync(join(home, "data", "friday", "board.md"), "## TODO\n- ! Call the bank\n- Review the contributor guide\n  check the new section\n## Priority\n- DEMO-12 ship the import\n## In progress\n- Prepare the demo\n## Done\n- Book the train\n");
 
   const now = today.getTime();
   const shared = {

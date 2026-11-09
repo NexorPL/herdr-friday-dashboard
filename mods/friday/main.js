@@ -272,6 +272,11 @@ export default class Friday extends View {
     openOverlay({ mod: "friday", kind: "dialog", width: 380, height: 210, props: { dialog: "addline", list, column } });
   }
 
+  /** The board: a dialog with the text of `card` (a card as drawn) to rewrite. */
+  openEditCard(card) {
+    openOverlay({ mod: "friday", kind: "dialog", width: 380, height: 210, props: { dialog: "addline", list: "board", card } });
+  }
+
   listKey(e, cx) {
     const id = this.widget.id;
     const rows = id === "todos" ? todoList(this) : id === "notes" ? noteList(this) : priorityList(this);

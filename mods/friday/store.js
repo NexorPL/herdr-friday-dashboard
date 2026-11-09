@@ -11,7 +11,7 @@ import { addFavorite, moveFavorite } from "./core/favorites.js";
 import { applyFetch, markSeen, rowsFor } from "./core/prs.js";
 import { isMissingError, isTooLargeError } from "./core/mdfile.js";
 import { toggleTodo, addEntry } from "./core/lists.js";
-import { addToBoardFile, moveInBoardFile, importInBoardFile } from "./core/board.js";
+import { addToBoardFile, moveInBoardFile, importInBoardFile, flagInBoardFile, editInBoardFile } from "./core/board.js";
 import { resolveSettings, setKey, expandHome } from "./core/settings.js";
 
 export const SETTINGS_FILE = "settings.json";
@@ -160,6 +160,18 @@ export async function addToList(kind, text) {
 export async function addToBoard(column, text, once = false) {
   await ensureDataDir();
   return addToBoardFile(mdIo, dataPath(LIST_FILES.board), column, text, once);
+}
+
+/** Sets or clears the priority flag of a card of board.md (a card as drawn). { ok, changed } or { ok: false, message }. */
+export async function flagOnBoard(card, flag) {
+  await ensureDataDir();
+  return flagInBoardFile(mdIo, dataPath(LIST_FILES.board), card, flag);
+}
+
+/** Rewrites the text of a card of board.md (a card as drawn); its list marker and flag stay. { ok, changed } or { ok: false, message }. */
+export async function editOnBoard(card, text) {
+  await ensureDataDir();
+  return editInBoardFile(mdIo, dataPath(LIST_FILES.board), card, text);
 }
 
 /** Moves a card of board.md (a card as drawn) to `place`. { ok, changed } or { ok: false, message }. */

@@ -3,7 +3,7 @@ import { div } from "gpui-kit";
 import { h_flex, v_flex, InputState } from "gpui-base";
 import { theme, props, closeOverlay, setShared } from "herdr";
 import { SETTINGS_REV } from "../hub.js";
-import { addToList, addToBoard } from "../store.js";
+import { addToList, addToBoard, editOnBoard } from "../store.js";
 import { COLUMNS } from "../core/board.js";
 import { jiraKeys } from "../core/jira.js";
 import { field, label } from "./jira-dialogs.js";
@@ -15,9 +15,10 @@ export class AddLineDialog {
   init() {
     this.list = (props() || {}).list;
     this.column = COLUMNS.find((c) => c.id === (props() || {}).column)?.id ?? "todo"; // the board: the column the card goes to
+    this.card = this.list === "board" ? (props() || {}).card ?? null : null; // the board: a card to rewrite instead of a column to add to
     this.message = null;
     this.busy = false; // no second submit while a write is in flight or after it succeeded
-    this.input = InputState.new({ value: "", placeholder: this.list === "priorities" || this.list === "board" ? "KEY-12 or text" : "Text" });
+    this.input = InputState.new({ value: this.card?.body ?? "", placeholder: this.list === "priorities" || this.list === "board" ? "KEY-12 or text" : "Text" });
     this.input.on("submit", (_e, cx) => this.submit(cx));
   }
 
@@ -26,7 +27,7 @@ export class AddLineDialog {
     const text = this.input.value();
     this.busy = true;
     cx.spawn(async (cx) => {
-      const r = await (this.list === "board" ? addToBoard(this.column, text) : addToList(this.list, text)).catch(() => ({ ok: false, message: "could not write the file" }));
+      const r = await (this.card ? editOnBoard(this.card, text) : this.list === "board" ? addToBoard(this.column, text) : addToList(this.list, text)).catch(() => ({ ok: false, message: "could not write the file" }));
       if (!r.ok) {
         this.busy = false;
         this.message = { text: r.message, state: "error" };
@@ -40,12 +41,12 @@ export class AddLineDialog {
   render() {
     const t = theme();
     return v_flex().size_full().bg(t.popover).text_color(t.foreground).text_size(12.5).p(18).gap(8)
-      .child(div().text_size(15).font_semibold().child(this.list === "board" ? `Add a card to ${COLUMNS.find((c) => c.id === this.column).title}` : TITLES[this.list] ?? "Add a line"))
+      .child(div().text_size(15).font_semibold().child(this.card ? "Edit the card" : this.list === "board" ? `Add a card to ${COLUMNS.find((c) => c.id === this.column).title}` : TITLES[this.list] ?? "Add a line"))
       .child(label(t, "One line"))
       .child(field(t, this.input))
       .when(Boolean(this.message), (el) => el.child(note(t, this.message.text, this.message.state)))
       .child(h_flex().gap(8).justify_end()
         .child(button(t, "al-cancel", "Cancel", () => closeOverlay((props() || {}).overlay)))
-        .child(button(t, "al-add", this.busy ? "Adding…" : "Add", (_e, cx) => this.submit(cx), true)));
+        .child(button(t, "al-add", this.busy ? "Saving…" : this.card ? "Save" : "Add", (_e, cx) => this.submit(cx), true)));
   }
 }

@@ -74,6 +74,16 @@ export function keepsEveryLine(before, after) {
   return true;
 }
 
+/**
+ * True when `after` is `before` with only the text of line `at` replaced: the same number of lines,
+ * every other line and every terminator the same, the same BOM. The guard for editing one card line.
+ */
+export function onlyLineChanged(before, after, at) {
+  const x = parseMd(before ?? "");
+  const y = parseMd(after ?? "");
+  return x.bom === y.bom && x.lines.length === y.lines.length && x.lines.every((l, i) => y.lines[i].eol === l.eol && (i === at || y.lines[i].text === l.text));
+}
+
 /** True when a read error says the file does not exist (as opposed to locked, too large, denied). */
 export function isMissingError(e) {
   return /ENOENT|no such file|cannot find the (file|path)|os error [23]\b/i.test(String(e?.message ?? e ?? ""));

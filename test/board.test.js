@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COLUMNS, IMPORT_MARKER, parseBoard, defaultPlace, moveCard, addCard, addToBoardFile, moveInBoardFile, isColumnHeading, nextSelection, selectCard, cardsWithoutStatus, movePlace, selectMoved, boardKeys, importCandidates, importLists, importInBoardFile, cardFace, dropPlace, dropSlot } from "../mods/friday/core/board.js";
-import { onlyMoved, keepsEveryLine, CHANGED } from "../mods/friday/core/mdfile.js";
+import { COLUMNS, IMPORT_MARKER, parseBoard, priorityCards, setFlag, editCard, flagInBoardFile, editInBoardFile, defaultPlace, moveCard, addCard, addToBoardFile, moveInBoardFile, isColumnHeading, nextSelection, selectCard, cardsWithoutStatus, movePlace, selectMoved, boardKeys, importCandidates, importLists, importInBoardFile, cardFace, dropPlace, dropSlot } from "../mods/friday/core/board.js";
+import { onlyMoved, onlyLineChanged, keepsEveryLine, CHANGED } from "../mods/friday/core/mdfile.js";
 
 const BOM = "﻿";
 const FILE = [
@@ -12,7 +12,7 @@ const FILE = [
 const cardOf = (text, body) => parseBoard(text).columns.flatMap((c) => c.cards).find((c) => c.body === body);
 const move = (text, body, place) => moveCard(text, cardOf(text, body), place);
 
-test("a board file reads as four columns of cards", () => {
+test("a board file reads as three columns of cards, and the old Priority one while it has cards", () => {
   const b = parseBoard(FILE);
   assert.deepEqual(b.columns.map((c) => [c.id, c.cards.length]), [["todo", 2], ["priority", 1], ["progress", 1], ["done", 1]]);
   assert.equal(b.outside, 1);
@@ -22,12 +22,13 @@ test("a board file reads as four columns of cards", () => {
   assert.deepEqual(docs.block, ["- Write docs", "  indented detail"]);
   assert.equal(cardOf(FILE, "DEMO-12 ship the import").key, "DEMO-12");
   assert.equal(cardOf(FILE, "Call the bank").key, null);
-  assert.deepEqual(COLUMNS.map((c) => c.title), ["TODO", "Priority", "In progress", "Done"]);
+  assert.deepEqual(COLUMNS.map((c) => c.title), ["TODO", "In progress", "Done"]);
+  assert.deepEqual(parseBoard("## TODO\n## Priority\n").columns.map((c) => c.id), ["todo", "progress", "done"], "an empty old column is not drawn");
 });
 
 test("headings count in any case and level, the first one wins, other headings hide their lines", () => {
   const b = parseBoard("#### done\n- a\n# DONE\n- b\n## Notes\n- c\n## Todo\n- d\n");
-  assert.deepEqual(b.columns.map((c) => c.cards.map((x) => x.body)), [["d"], [], [], ["a"]]);
+  assert.deepEqual(b.columns.map((c) => c.cards.map((x) => x.body)), [["d"], [], ["a"]]);
   assert.equal(b.outside, 4, "the second Done heading and b under it, the Notes heading and c under it");
   assert.equal(parseBoard("").columns.every((c) => c.heading < 0 && c.cards.length === 0), true);
 });
@@ -72,8 +73,8 @@ test("a card moves inside its column: above a card, to the top, to the end", () 
 });
 
 test("a move to an empty column lands under its heading, and a missing heading is added at the end", () => {
-  const empty = "## TODO\n- a\n## Priority\n## Done\n";
-  assert.equal(move(empty, "a", { column: "priority", at: "end" }).text, "## TODO\n## Priority\n- a\n## Done\n");
+  const empty = "## TODO\n- a\n## In progress\n## Done\n";
+  assert.equal(move(empty, "a", { column: "progress", at: "end" }).text, "## TODO\n## In progress\n- a\n## Done\n");
   const r = move("## TODO\n- a\n- b\n", "a", { column: "done", at: "top" });
   assert.equal(r.text, "## TODO\n- b\n## Done\n- a\n");
   assert.deepEqual(r.plan.added, ["## Done"]);
@@ -119,8 +120,8 @@ test("duplicate cards: one of several moves only at its old place, with the line
 });
 
 test("adding a card goes after the column's last card and creates what is missing", () => {
-  assert.equal(addCard(null, "todo", "first"), "## TODO\n- first\n## Priority\n## In progress\n## Done\n");
-  assert.equal(addCard("", "done", "x"), "## TODO\n## Priority\n## In progress\n## Done\n- x\n");
+  assert.equal(addCard(null, "todo", "first"), "## TODO\n- first\n## In progress\n## Done\n");
+  assert.equal(addCard("", "done", "x"), "## TODO\n## In progress\n## Done\n- x\n");
   assert.equal(addCard(FILE, "todo", "new").split("\n").slice(1, 7).join("|"), "## todo|- Call the bank|- Write docs|  indented detail|- new|### PRIORITY", "after the last card and its body");
   assert.equal(addCard("## TODO\n- a\n", "progress", "b"), "## TODO\n- a\n## In progress\n- b\n", "a missing heading is added at the end");
   assert.equal(addCard("## TODO\n## Done\n", "todo", "a"), "## TODO\n- a\n## Done\n");
@@ -151,11 +152,11 @@ function fakeIo(initial, hooks = {}) {
 test("addToBoardFile and moveInBoardFile write through the R10 guards", async () => {
   const f = fakeIo(null);
   assert.deepEqual(await addToBoardFile(f.io, "board.md", "todo", "first"), { ok: true, changed: true });
-  assert.equal(f.text, "## TODO\n- first\n## Priority\n## In progress\n## Done\n");
+  assert.equal(f.text, "## TODO\n- first\n## In progress\n## Done\n");
   assert.deepEqual(await addToBoardFile(f.io, "board.md", "todo", "  "), { ok: false, message: "Enter one line of text." });
   const card = cardOf(f.text, "first");
   assert.deepEqual(await moveInBoardFile(f.io, "board.md", card, defaultPlace("done")), { ok: true, changed: true });
-  assert.equal(f.text, "## TODO\n## Priority\n## In progress\n## Done\n- first\n");
+  assert.equal(f.text, "## TODO\n## In progress\n## Done\n- first\n");
   assert.deepEqual(await moveInBoardFile(f.io, "board.md", card, defaultPlace("done")), { ok: false, message: CHANGED }, "the card is no longer in the column it was drawn in");
   f.text = f.text.replace("- first", "- second");
   assert.deepEqual(await moveInBoardFile(f.io, "board.md", card, defaultPlace("todo")), { ok: false, message: CHANGED });
@@ -169,6 +170,46 @@ test("addToBoardFile with once adds a todo's text a single time, in any column",
   assert.deepEqual(await addToBoardFile(f.io, "board.md", "todo", "b", true), { ok: true, changed: false }, "a card in Done counts");
   assert.equal(f.text, "## TODO\n- a\n- c\n## Done\n- b\n");
   assert.deepEqual(await addToBoardFile(f.io, "board.md", "todo", "c"), { ok: true, changed: true }, "without once a second add is a second card");
+});
+
+test("a card starting with '! ' is a priority, and so is every card of the old Priority column", () => {
+  const b = parseBoard("## TODO\n- ! Call the bank\n- Write docs\n- !nope\n## Priority\n- old one\n## In progress\n- ! DEMO-1 ship\n## Done\n- ! finished\n");
+  const todo = b.columns[0].cards;
+  assert.deepEqual(todo.map((c) => [c.body, c.flag]), [["Call the bank", true], ["Write docs", false], ["!nope", false]], "the flag is hidden from the body, and needs a space");
+  assert.equal(b.columns[2].cards[0].key, "DEMO-1");
+  assert.deepEqual(priorityCards(b).map((c) => c.body), ["Call the bank", "old one", "DEMO-1 ship"], "Done is left out");
+  assert.deepEqual(boardKeys(b), ["DEMO-1"]);
+});
+
+test("setFlag and editCard change the one first line of a card and nothing else", () => {
+  const text = "﻿## TODO\r\n- Call the bank\r\n  detail\r\n1. Numbered\r\n## Done\r\n- x";
+  const card = cardOf(text, "Call the bank");
+  const on = setFlag(text, card, true);
+  assert.equal(on.text, "﻿## TODO\r\n- ! Call the bank\r\n  detail\r\n1. Numbered\r\n## Done\r\n- x");
+  assert.equal(on.at, 1);
+  assert.ok(onlyLineChanged(text, on.text, on.at));
+  assert.equal(setFlag(on.text, cardOf(on.text, "Call the bank"), false).text, text, "clearing restores the file byte for byte");
+  assert.equal(setFlag(text, card, false).text, text, "clearing an unset flag changes nothing");
+  assert.equal(editCard(text, card, "DEMO-5 call the bank").text, "﻿## TODO\r\n- DEMO-5 call the bank\r\n  detail\r\n1. Numbered\r\n## Done\r\n- x");
+  assert.equal(editCard(on.text, cardOf(on.text, "Call the bank"), "Other").text.split("\r\n")[1], "- ! Other", "an edit keeps the flag");
+  assert.equal(editCard(text, cardOf(text, "Numbered"), "Second").text.split("\r\n")[3], "1. Second", "an edit keeps the list marker");
+  assert.equal(editCard(text, cardOf(text, "x"), "y").text.endsWith("- y"), true, "no final newline stays missing");
+  assert.throws(() => editCard(text, card, "a\nb"), /single line/);
+  assert.equal(editCard(text.replace("Call the bank", "Other"), card, "z"), null, "its line changed by hand");
+  assert.equal(setFlag(null, card, true), null);
+});
+
+test("flagInBoardFile and editInBoardFile write through the one-line guard", async () => {
+  const f = fakeIo("## TODO\n- a\n- b\n");
+  const a = cardOf(f.text, "a");
+  assert.deepEqual(await flagInBoardFile(f.io, "board.md", a, true), { ok: true, changed: true });
+  assert.equal(f.text, "## TODO\n- ! a\n- b\n");
+  assert.deepEqual(await flagInBoardFile(f.io, "board.md", cardOf(f.text, "a"), true), { ok: true, changed: false });
+  assert.deepEqual(await editInBoardFile(f.io, "board.md", cardOf(f.text, "b"), "  "), { ok: false, message: "Enter one line of text." });
+  assert.deepEqual(await editInBoardFile(f.io, "board.md", cardOf(f.text, "b"), "b2"), { ok: true, changed: true });
+  assert.equal(f.text, "## TODO\n- ! a\n- b2\n");
+  assert.deepEqual(await editInBoardFile(f.io, "board.md", a, "late"), { ok: false, message: CHANGED }, "the card was drawn before it changed");
+  assert.equal(f.writes.length, 2);
 });
 
 test("a write that loses a race is planned again from the new file, once", async () => {
@@ -215,10 +256,9 @@ test("arrows move the selection and stop at the edges", () => {
   assert.equal(name(sel(at("done", "Book the train"), "right")), "done:Book the train", "stops at the last column");
   assert.equal(name(sel(at("todo", "Call the bank"), "left")), "todo:Call the bank", "stops at the first column");
   // an empty column keeps the selection on the column, with no card
-  const e = parseBoard("## TODO\n- a\n## Priority\n## Done\n- b\n");
-  assert.deepEqual(nextSelection(e, { column: "todo", card: e.columns[0].cards[0] }, "right"), { column: "priority", card: null });
-  assert.deepEqual(nextSelection(e, { column: "priority", card: null }, "down"), { column: "priority", card: null });
-  assert.deepEqual(nextSelection(e, { column: "priority", card: null }, "right"), { column: "progress", card: null });
+  const e = parseBoard("## TODO\n- a\n## In progress\n## Done\n- b\n");
+  assert.deepEqual(nextSelection(e, { column: "todo", card: e.columns[0].cards[0] }, "right"), { column: "progress", card: null });
+  assert.deepEqual(nextSelection(e, { column: "progress", card: null }, "down"), { column: "progress", card: null });
   assert.equal(nextSelection(e, { column: "progress", card: null }, "right").card.body, "b");
   assert.equal(col("done").cards.length, 1);
 });
@@ -248,7 +288,7 @@ test("selectCard follows a card that moved; cardsWithoutStatus counts keyed card
 });
 
 test("Shift+arrows swap a card with its neighbour or send it to the next column", () => {
-  const text = "## TODO\n- a\n- b\n- c\n## Priority\n## In progress\n## Done\n- d\n";
+  const text = "## TODO\n- a\n- b\n- c\n## In progress\n## Done\n- d\n";
   const b = parseBoard(text);
   const at = (body) => ({ column: b.columns.find((c) => c.cards.some((x) => x.body === body)).id, card: cardOf(text, body) });
   const run = (body, dir) => { const p = movePlace(b, at(body), dir); return p && moveCard(text, cardOf(text, body), p).text.split("\n").filter((l) => l.startsWith("- ")).join(""); };
@@ -257,29 +297,29 @@ test("Shift+arrows swap a card with its neighbour or send it to the next column"
   assert.equal(run("b", "down"), "- a- c- b- d", "down to the end of the column");
   assert.equal(movePlace(b, at("a"), "up"), null);
   assert.equal(movePlace(b, at("c"), "down"), null);
-  assert.deepEqual(movePlace(b, at("a"), "right"), { column: "priority", at: "end" });
+  assert.deepEqual(movePlace(b, at("a"), "right"), { column: "progress", at: "end" });
   assert.deepEqual(movePlace(b, at("d"), "left"), { column: "progress", at: "end" });
   assert.equal(movePlace(b, at("a"), "left"), null, "no column before TODO");
   assert.equal(movePlace(b, at("d"), "right"), null, "no column after Done");
   assert.equal(movePlace(b, { column: "priority", card: null }, "up"), null);
   // into Done: to the top
-  assert.deepEqual(movePlace(parseBoard("## TODO\n## Priority\n## In progress\n- x\n## Done\n"), { column: "progress", card: parseBoard("## TODO\n## Priority\n## In progress\n- x\n## Done\n").columns[2].cards[0] }, "right"), { column: "done", at: "top" });
+  assert.deepEqual(movePlace(parseBoard("## TODO\n## In progress\n- x\n## Done\n"), { column: "progress", card: parseBoard("## TODO\n## In progress\n- x\n## Done\n").columns[1].cards[0] }, "right"), { column: "done", at: "top" });
 });
 
 test("a parse stays linear with many duplicate cards", () => {
   const text = `## Done\n${"- Standup\n".repeat(20000)}`;
   const t0 = Date.now();
   const b = parseBoard(text);
-  assert.equal(b.columns[3].cards.length, 20000);
+  assert.equal(b.columns.at(-1).cards.length, 20000);
   assert.ok(Date.now() - t0 < 1000, "20000 duplicates parse in well under a second");
-  assert.equal(b.columns[3].cards[1].above, b.columns[3].cards[2].above, "duplicates share one array of line texts");
+  assert.equal(b.columns.at(-1).cards[1].above, b.columns.at(-1).cards[2].above, "duplicates share one array of line texts");
 });
 
 test("indented headings, orphan lines, multi-line comments and code fences are never cards", () => {
   // an indented heading is a heading: it ends the card above it
   const h = parseBoard("## TODO\n- a\n ## Done\n- b\n");
   assert.equal(h.columns[0].cards[0].size, 1);
-  assert.deepEqual(h.columns[3].cards.map((c) => c.body), ["b"]);
+  assert.deepEqual(h.columns.at(-1).cards.map((c) => c.body), ["b"]);
   // hidden lines are counted: other headings, a repeated column heading, an orphan indented line
   assert.equal(parseBoard("# My board\n## TODO\n- a\n").outside, 1);
   assert.equal(parseBoard("## TODO\n  orphan\n- a\n").outside, 1);
@@ -324,27 +364,27 @@ test("importCandidates lists todos and priorities that are not on the board yet"
   const todos = "# Todos\n- [ ] Call the bank\n- [x] Book the train\n- [ ] Call the bank\nnot a todo\n";
   const pri = "1. DEMO-12\n2. Prepare the demo\n";
   assert.deepEqual(importCandidates(null, todos, pri), [
+    { column: "todo", body: "DEMO-12", flag: true },
+    { column: "todo", body: "Prepare the demo", flag: true },
     { column: "todo", body: "Call the bank" },
     { column: "done", body: "Book the train" },
-    { column: "priority", body: "DEMO-12" },
-    { column: "priority", body: "Prepare the demo" },
   ]);
   // a body already on the board, in any column, is not offered again
-  assert.deepEqual(importCandidates("## Done\n- Call the bank\n## TODO\n- DEMO-12\n", todos, pri).map((c) => c.body), ["Book the train", "Prepare the demo"]);
+  assert.deepEqual(importCandidates("## Done\n- Call the bank\n## TODO\n- DEMO-12\n", todos, pri).map((c) => c.body), ["Prepare the demo", "Book the train"]);
   assert.deepEqual(importCandidates(null, null, null), []);
   assert.deepEqual(importCandidates(null, "", "# only a heading\n"), []);
 });
 
-test("importLists adds the candidates in their columns and the marker on top", () => {
+test("importLists adds the priorities flagged, the todos to TODO and Done, and the marker on top", () => {
   const todos = "- [ ] a\n- [x] b\n";
   const pri = "1. p\n2. q\n";
-  assert.equal(importLists(null, todos, pri), `${IMPORT_MARKER}\n## TODO\n- a\n## Priority\n- p\n- q\n## In progress\n## Done\n- b\n`);
+  assert.equal(importLists(null, todos, pri), `${IMPORT_MARKER}\n## TODO\n- ! p\n- ! q\n- a\n## In progress\n## Done\n- b\n`);
   // cards go after the last card of their column; a heading that is missing comes at the end
   assert.equal(importLists("## TODO\n- x\n  note\n## Done\n- y\n", todos, ""), `${IMPORT_MARKER}\n## TODO\n- x\n  note\n- a\n## Done\n- y\n- b\n`);
-  assert.equal(importLists("## TODO\n- x\n", todos, pri), `${IMPORT_MARKER}\n## TODO\n- x\n- a\n## Priority\n- p\n- q\n## Done\n- b\n`);
+  assert.equal(importLists("## TODO\n- x\n", todos, pri), `${IMPORT_MARKER}\n## TODO\n- x\n- ! p\n- ! q\n- a\n## Done\n- b\n`);
   // Dismiss: the marker alone (a new file also gets its four headings)
   assert.equal(importLists("## TODO\n- x\n", null, null), `${IMPORT_MARKER}\n## TODO\n- x\n`);
-  assert.equal(importLists(null, null, null), `${IMPORT_MARKER}\n## TODO\n## Priority\n## In progress\n## Done\n`);
+  assert.equal(importLists(null, null, null), `${IMPORT_MARKER}\n## TODO\n## In progress\n## Done\n`);
   // with the marker there, nothing changes: a second import adds nothing
   const once = importLists("## TODO\n", todos, pri);
   assert.equal(importLists(once, todos, pri), once);
@@ -384,7 +424,7 @@ test("importInBoardFile: two copies importing at once do not double a card", asy
 test("import edge cases: a BOM-only file, checkbox cards, comments in the lists, an open block", async () => {
   // a file with only a BOM is an empty file: it gets the headings and keeps the BOM
   const bom = importLists(BOM, "- [ ] a\n", "");
-  assert.equal(bom, `${BOM}${IMPORT_MARKER}\n## TODO\n- a\n## Priority\n## In progress\n## Done\n`);
+  assert.equal(bom, `${BOM}${IMPORT_MARKER}\n## TODO\n- a\n## In progress\n## Done\n`);
   assert.equal(importLists(BOM, null, null).startsWith(`${BOM}${IMPORT_MARKER}`), true);
   // a card that carries its own checkbox, or trailing spaces, is the same line as the todo
   assert.deepEqual(importCandidates("## TODO\n- [ ] a\n- b\n", "- [ ] a\n- [ ] b  \n- [ ] c\n", ""), [{ column: "todo", body: "c" }]);
