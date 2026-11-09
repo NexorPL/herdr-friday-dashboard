@@ -8,6 +8,7 @@ import { claimAlerts as claimInto } from "./core/alerts.js";
 import { secretFrom, withSecret } from "./core/secrets.js";
 import { addRecord, recordsOf } from "./core/worklogs.js";
 import { addFavorite, moveFavorite } from "./core/favorites.js";
+import { moveListRow } from "./core/lists.js";
 import { applyFetch, markSeen, rowsFor } from "./core/prs.js";
 import { isMissingError, isTooLargeError } from "./core/mdfile.js";
 import { toggleTodo, addEntry } from "./core/lists.js";
@@ -154,6 +155,12 @@ export async function toggleInTodos(row) {
 export async function addToList(kind, text) {
   await ensureDataDir();
   return addEntry(mdIo, dataPath(LIST_FILES[kind]), kind, text);
+}
+
+/** Moves a row of todos.md, notes.md or priorities.md (`row` as drawn, at `index`) up or down. { ok, changed } or { ok: false, message }. */
+export async function moveInList(kind, index, row, dir) {
+  await ensureDataDir();
+  return moveListRow(mdIo, dataPath(LIST_FILES[kind]), kind, index, row.text, dir);
 }
 
 /** Adds a card at the end of a column of board.md (the file is created on the first add). { ok, changed } or { ok: false, message }. */

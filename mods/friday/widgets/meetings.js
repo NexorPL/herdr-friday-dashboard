@@ -7,7 +7,7 @@ import { theme } from "herdr";
 import { todayRows, rowTime, localDay } from "../core/meetings.js";
 import { offsetNow } from "../net.js";
 import { openLink } from "../open.js";
-import { button, note } from "../ui.js";
+import { button, note, tip } from "../ui.js";
 
 /** The rows to draw now, for the view and its keys alike. */
 export function meetingRows(v, now = Date.now()) {
@@ -54,6 +54,6 @@ export function renderMeetings(v) {
       .hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); joinRow(v, r); cx.notify(); })
       .child(div().w(54).flex_none().text_size(12).text_color(r.past ? t.dim : t.muted).child(rowTime(r, offsetMin)))
-      .child(div().flex_1().truncate().text_size(12.5).text_color(r.past ? t.dim : t.foreground).child(r.title))
+      .child(tip(div().flex_1().truncate().text_size(12.5).text_color(r.past ? t.dim : t.foreground).child(r.title), r.title))
       .child(div().flex_none().text_size(11).text_color(t.accent).child(r.join_kind ?? ""))));
 }

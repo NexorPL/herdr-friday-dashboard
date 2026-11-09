@@ -7,7 +7,7 @@ import { theme } from "herdr";
 import { minutesText, weekdayOf } from "../core/format.js";
 import { totalFor } from "../core/ledger.js";
 import { openLink } from "../open.js";
-import { button, note } from "../ui.js";
+import { button, note, tip } from "../ui.js";
 
 /** At most this many days are drawn; the rest stay in the file. */
 const MAX_DRAWN_DAYS = 60;
@@ -80,7 +80,7 @@ export function renderLedger(v) {
             .child(link(t, `led-t-${d.date}-${i}`, r.task ? r.task.key : "—", r.task ? r.task.url : null, 76))
             .child(link(t, `led-p-${d.date}-${i}`, `!${r.pr}`, r.pr_url, 56))
             .child(div().w(34).flex_none().text_size(12).text_color(t.muted).child(`${r.runs}×`))
-            .child(div().flex_1().truncate().text_size(11).text_color(t.dim).child(r.times.join(", ")))
+            .child(tip(div().flex_1().truncate().text_size(11).text_color(t.dim).child(r.times.join(", ")), r.times.join(", ")))
             .child(div().w(54).flex_none().text_size(12).child(minutesText(r.minutes)));
         }));
     }));

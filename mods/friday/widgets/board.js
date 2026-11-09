@@ -9,7 +9,7 @@ import { SETTINGS_REV } from "../hub.js";
 import { parseBoard, priorityCards, nextSelection, selectMoved, movePlace, cardsWithoutStatus, cardFace, dropPlace, dropSlot } from "../core/board.js";
 import { moveOnBoard, flagOnBoard, importToBoard, dismissImport } from "../store.js";
 import { openLink } from "../open.js";
-import { button, note, stateColor } from "../ui.js";
+import { button, note, stateColor, tip } from "../ui.js";
 import { editFile } from "./lists.js";
 
 /** Done can grow forever (R10 forbids deleting), so only this many of its cards are drawn. */
@@ -171,8 +171,8 @@ function cardView(v, t, col, card, selected, issue) {
       if (v.handle) v.handle.focus();
       cx.notify();
     })
-    .child(div().max_h(53).overflow_hidden().line_height(1.35).text_size(13).text_color(done ? t.dim : t.foreground).child(title))
-    .when(Boolean(detail), (el) => el.child(div().truncate().text_size(11).text_color(t.dim).child(detail)))
+    .child(tip(div().max_h(53).overflow_hidden().line_height(1.35).text_size(13).text_color(done ? t.dim : t.foreground).child(title), card.body))
+    .when(Boolean(detail), (el) => el.child(tip(div().truncate().text_size(11).text_color(t.dim).child(detail), detail)))
     .when(Boolean(card.key) || card.flag, (el) => el.child(h_flex().flex_wrap().gap(4).items_center()
       .when(card.flag, (row) => row.child(pill("priority", t.accent)))
       .when(Boolean(card.key), (row) => row.child(pill(card.key, t.dim)))
@@ -190,7 +190,7 @@ function priorityStrip(v, t, board, sel, issues) {
       .bg(sel.card?.line === card.line ? t.selected : t.background)
       .hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => { v.sel = { column: card.column, card }; if (v.handle) v.handle.focus(); cx.notify(); })
-      .child(div().truncate().text_size(12).child(cardFace(card, issues.get(card.key)).title))));
+      .child(tip(div().truncate().text_size(12).child(cardFace(card, issues.get(card.key)).title), card.body))));
 }
 
 /** The room above a card and below the last one. It is always there, so showing the mark moves nothing under the pointer. */

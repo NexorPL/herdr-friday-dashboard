@@ -6,7 +6,7 @@ import { theme } from "herdr";
 import { clockText, dateText, ymd, reviewLine } from "../core/format.js";
 import { totalFor } from "../core/ledger.js";
 import { checklist } from "../core/setup.js";
-import { button, note, stateColor } from "../ui.js";
+import { button, note, stateColor, tip } from "../ui.js";
 
 function settingsNotice(t, settings) {
   if (settings.state === "newer") return note(t, `settings.json is version ${settings.version}; this Friday reads version 1. Update Friday.`, "error");
@@ -22,7 +22,7 @@ function checklistRows(t, v, now) {
     .children(rows.map((r) => h_flex().gap(8).items_center()
       .child(div().w(8).h(8).flex_none().rounded(4).bg(stateColor(t, r.state === "todo" ? "loading" : r.state)))
       .child(div().w(110).flex_none().text_size(12).child(r.label))
-      .child(div().flex_1().truncate().text_size(11).text_color(t.dim).child(r.detail))
+      .child(tip(div().flex_1().truncate().text_size(11).text_color(t.dim).child(r.detail), r.detail))
       .child(button(t, `setup-${r.id}`, "Set up", () => v.openSettings(r.section)))));
 }
 

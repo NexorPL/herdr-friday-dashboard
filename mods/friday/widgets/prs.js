@@ -5,7 +5,7 @@ import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { theme } from "herdr";
 import { openLink } from "../open.js";
-import { button, note } from "../ui.js";
+import { button, note, tip } from "../ui.js";
 
 /** The rows to draw now, for the view and its keys alike. */
 export function prRows(v) {
@@ -49,7 +49,7 @@ export function renderPrs(v) {
       .on_click((_e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); openPr(v, r, cx); cx.notify(); })
       .child(div().w(12).flex_none().text_size(12).text_color(t.accent).child(r.unseen ? "●" : ""))
       .child(div().w(52).flex_none().truncate().text_size(12).text_color(t.accent).child(`!${r.id}`))
-      .child(div().flex_1().truncate().text_size(12.5).child(r.title))
+      .child(tip(div().flex_1().truncate().text_size(12.5).child(r.title), r.title))
       .child(div().w(44).flex_none().text_size(11).text_color(t.dim).child(r.is_draft ? "draft" : ""))
       .child(div().w(96).flex_none().truncate().text_size(11).text_color(t.muted).child(r.author))));
 }

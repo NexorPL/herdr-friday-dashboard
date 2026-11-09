@@ -1,5 +1,5 @@
 // Todos, notes and priorities (D26, R10): the owner's plain `.md` files. Space or a click toggles a
-// todo, `b` puts a todo on the board, `a` adds a line (notes: moves to the input), `e` opens the file in the default program, `r`
+// todo, Shift+Up and Shift+Down move the row, `b` puts a todo on the board, `a` adds a line (notes: moves to the input), `e` opens the file in the default program, `r`
 // reads it again.
 import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
@@ -7,10 +7,10 @@ import { theme, setShared } from "herdr";
 import { SETTINGS_REV } from "../hub.js";
 import { jiraKeys } from "../core/jira.js";
 import { todoRows, noteRows, priorityRows, submitLine } from "../core/lists.js";
-import { dataPath, LIST_FILES, toggleInTodos, addToList, addToBoard } from "../store.js";
+import { dataPath, LIST_FILES, toggleInTodos, addToList, addToBoard, moveInList } from "../store.js";
 import { field } from "../dialogs/jira-dialogs.js";
 import { openLink, openPath } from "../open.js";
-import { button, note } from "../ui.js";
+import { button, note, tip } from "../ui.js";
 
 const listFile = (id) => dataPath(LIST_FILES[id]).replaceAll("\\", "/");
 
@@ -34,6 +34,27 @@ export function toggleTodoRow(v, row, cx) {
     try {
       const r = await toggleInTodos(row).catch(() => ({ ok: false, message: "could not write the file" }));
       if (!r.ok) v.message = r.message;
+      await v.readInto(true);
+    } finally {
+      v.busy = false;
+      cx.notify();
+    }
+  });
+}
+
+/** Shift+Up, Shift+Down or the Up and Down buttons: moves the cursor's row; one write at a time, the cursor follows the row. */
+export function moveListRowAt(v, rows, dir, cx) {
+  const i = v.cursor;
+  const row = rows[i];
+  const edge = dir === "up" ? i <= 0 : i >= rows.length - 1;
+  if (!row || edge || v.busy) return;
+  v.busy = true;
+  v.message = null;
+  cx.spawn(async (cx) => {
+    try {
+      const r = await moveInList(v.widget.id, i, row, dir).catch(() => ({ ok: false, message: "could not write the file" }));
+      if (!r.ok) v.message = r.message;
+      else if (r.changed) v.cursor = i + (dir === "up" ? -1 : 1);
       await v.readInto(true);
     } finally {
       v.busy = false;
@@ -88,7 +109,9 @@ function renderList(v, rows, draw) {
     .when(Boolean(v.message), (el) => el.child(note(t, v.message, "stale")))
     .child(h_flex().gap(8)
       .when(id !== "notes", (el) => el.child(button(t, `${id}-add`, "Add (a)", () => v.openAddLine()))) // notes has its input
-      .child(button(t, `${id}-edit`, "Edit file (e)", () => editFile(v))))
+      .child(button(t, `${id}-edit`, "Edit file (e)", () => editFile(v)))
+      .child(button(t, `${id}-up`, "▲ Up", (_e, cx) => moveListRowAt(v, rows, "up", cx)))
+      .child(button(t, `${id}-down`, "▼ Down", (_e, cx) => moveListRowAt(v, rows, "down", cx))))
     .when(rows.length === 0 && !v.list.error, (el) => el.child(note(t, EMPTY[id])))
     .children(rows.map((r, i) => h_flex().id(`${id}-${i}`).gap(8).px(4).min_h(24).items_center().rounded(4).cursor_pointer()
       .when(i === v.cursor, (el) => el.bg(t.selected))
@@ -102,7 +125,7 @@ export function renderTodos(v) {
   return renderList(v, todoList(v), {
     click: (v2, r, cx) => toggleTodoRow(v2, r, cx),
     row: (t2, r) => h_flex().gap(8).flex_1().child(div().w(20).flex_none().text_size(12.5).text_color(r.done ? t2.dim : t2.accent).child(r.done ? "[x]" : "[ ]"))
-      .child(div().flex_1().truncate().text_size(12.5).text_color(r.done ? t.dim : t.foreground).child(r.body))
+      .child(tip(div().flex_1().truncate().text_size(12.5).text_color(r.done ? t.dim : t.foreground).child(r.body), r.body))
       .child(button(t, `todos-board-${r.line}`, "To board (b)", (_e, cx) => todoToBoard(v, r, cx))),
   });
 }
@@ -113,7 +136,7 @@ export function renderNotes(v) {
     .child(div().flex_none().px(10).pt(10).child(field(t, v.noteInput))) // above the scrolling rows, so it is always there
     .child(div().flex_1().min_h(0).child(renderList(v, noteList(v), {
       click: () => {},
-      row: (t2, r) => div().flex_1().truncate().text_size(12.5).child(r.text),
+      row: (t2, r) => tip(div().flex_1().truncate().text_size(12.5).child(r.text), r.text),
     })));
 }
 
@@ -123,7 +146,7 @@ export function renderPriorities(v) {
     row: (t, r) => h_flex().gap(8).flex_1()
       .child(div().w(20).flex_none().text_size(11).text_color(t.dim).child(String(r.n)))
       .child(div().w(76).flex_none().truncate().text_size(12).text_color(t.accent).child(r.key ?? ""))
-      .child(div().flex_1().truncate().text_size(12.5).child(r.label))
+      .child(tip(div().flex_1().truncate().text_size(12.5).child(r.label), r.label))
       .child(div().w(84).flex_none().truncate().text_size(11).text_color(t.dim).child(r.status)),
   });
 }

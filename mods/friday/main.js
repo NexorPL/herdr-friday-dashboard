@@ -15,7 +15,7 @@ import { renderLedger, flatRows } from "./widgets/ledger.js";
 import { renderMeetings, meetingRows, joinRow } from "./widgets/meetings.js";
 import { renderPrs, prRows, openPr } from "./widgets/prs.js";
 import { renderFavorites, favoriteList, favoritesFile, logRow, moveFavoriteRow } from "./widgets/favorites.js";
-import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, todoToBoard, editFile, submitNote } from "./widgets/lists.js";
+import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, todoToBoard, moveListRowAt, editFile, submitNote } from "./widgets/lists.js";
 import { renderBoard, boardKey, boardOf } from "./widgets/board.js";
 import { PaneHead, DOC_UNREADABLE } from "./widgets/pane-head.js";
 import { importCandidates } from "./core/board.js";
@@ -287,7 +287,8 @@ export default class Friday extends View {
     const id = this.widget.id;
     const rows = id === "todos" ? todoList(this) : id === "notes" ? noteList(this) : priorityList(this);
     this.message = null;
-    if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
+    if ((e.key === "down" || e.key === "up") && e.modifiers?.shift === true) moveListRowAt(this, rows, e.key, cx); // Shift first: e.key is "down" with Shift held too
+    else if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
     else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
     else if (id === "todos" && (e.key === "space" || e.key === " " || e.key === "enter")) toggleTodoRow(this, rows[this.cursor], cx);
     else if (id === "todos" && e.key === "b") todoToBoard(this, rows[this.cursor], cx);

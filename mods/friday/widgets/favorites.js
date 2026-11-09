@@ -7,7 +7,7 @@ import { theme } from "herdr";
 import { favoriteRows, favoriteKeys } from "../core/favorites.js";
 import { dataPath, FAVORITES_FILE, moveInFavorites, readDataText } from "../store.js";
 import { openLink, openPath } from "../open.js";
-import { button, note } from "../ui.js";
+import { button, note, tip } from "../ui.js";
 
 /** The rows to draw now, for the view and its keys alike. */
 export function favoriteList(v) {
@@ -74,14 +74,16 @@ export function renderFavorites(v) {
     .when(Boolean(v.message), (el) => el.child(note(t, v.message, "stale")))
     .child(h_flex().gap(8)
       .child(button(t, "fav-add", "Add favorite (a)", () => v.openAddFavorite()))
-      .child(button(t, "fav-edit", "Edit file (e)", () => openPath(favoritesFile()))))
+      .child(button(t, "fav-edit", "Edit file (e)", () => openPath(favoritesFile())))
+      .child(button(t, "fav-up", "▲ Up", (_e, cx) => moveFavoriteRow(v, rows, "up", cx)))
+      .child(button(t, "fav-down", "▼ Down", (_e, cx) => moveFavoriteRow(v, rows, "down", cx))))
     .when(rows.length === 0, (el) => el.child(note(t, "No favorites yet. Add a Jira key.")))
     .children(rows.map((r, i) => h_flex().id(`fav-${i}`).gap(8).px(4).h(24).items_center().rounded(4).cursor_pointer()
       .when(i === v.cursor, (el) => el.bg(t.selected))
       .hover((s) => s.bg(t.hover))
       .on_click((_e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); logRow(v, r); cx.notify(); })
       .child(div().w(84).flex_none().truncate().text_size(12).text_color(r.missing ? t.dim : t.accent).child(r.key))
-      .child(div().flex_1().truncate().text_size(12.5).text_color(r.missing ? t.dim : t.foreground).child(r.missing ? "not found" : r.summary))
+      .child(tip(div().flex_1().truncate().text_size(12.5).text_color(r.missing ? t.dim : t.foreground).child(r.missing ? "not found" : r.summary), r.missing ? "" : r.summary))
       .child(div().w(84).flex_none().truncate().text_size(11).text_color(t.dim).child(r.status))
       .child(div().w(64).flex_none().truncate().text_size(11).text_color(t.muted).child(r.priority))));
 }

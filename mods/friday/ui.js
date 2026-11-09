@@ -37,7 +37,7 @@ export function widgetHeader(t, w, hub, { refresh, settings, add, before = [] })
   const rec = source ? hub.status()[source] : undefined;
   return h_flex().px(10).gap(4).flex_none().items_center().border_b(1).border_color(t.border)
     .child(div().flex_none().text_size(12).font_semibold().child(w ? w.title : "Friday"))
-    .child(div().flex_1().truncate().pl(6).text_size(11).text_color(state === "error" ? t.ansi1 : t.dim).child(source ? stateText(state, rec) : ""))
+    .child(tip(div().flex_1().truncate().pl(6).text_size(11).text_color(state === "error" ? t.ansi1 : t.dim).child(source ? stateText(state, rec) : ""), source ? stateText(state, rec) : ""))
     .children(before)
     .child(iconButton(t, "fr-refresh", "↻", (_e, cx) => refresh(cx)))
     .child(iconButton(t, "fr-settings", "⚙", () => settings()))
@@ -53,6 +53,9 @@ export function stateColor(t, state) {
 }
 
 /** A line of text in a state's color. */
+/** `el` with a hover label holding `text`, the full text of a line the row cuts short; no label for an empty text. */
+export const tip = (el, text) => (text ? el.tooltip(text) : el);
+
 export function note(t, text, state = "loading") {
   return div().text_size(12).text_color(stateColor(t, state)).child(text);
 }

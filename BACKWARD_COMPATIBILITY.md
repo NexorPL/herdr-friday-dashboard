@@ -71,7 +71,7 @@ Plain Markdown in the data folder, owned by the owner (D26, D40); Friday and the
 - `notes.md`: every non-blank line that is not a heading is a note, newest first. A quick note is `- YYYY-MM-DD HH:MM text` (local time) inserted on top, right after the first heading.
 - `priorities.md`: numbered, bulleted or plain lines are all read as items (headings and blank lines are skipped); an item with a Jira key shows that issue's status. A new priority is added at the end in the file's own style: the next number after a numbered item (same `.` or `)`), the same bullet after a bullet, `- ` when there is no list yet; never bare text, so text starting with `#` cannot become a heading.
 
-All writes are under R10: no line is ever deleted or rewritten except that one checkbox character, CRLF or LF per line, a BOM and a missing final newline are kept (`core/mdfile.js`, `core/lists.js`). The widget ids `todos`, `notes` and `priorities` are in force too (see the widget ids above).
+All writes are under R10: no line is ever deleted or rewritten except that one checkbox character, and a row may move one place up or down (Shift+Up and Shift+Down, D50): it swaps with its neighbouring row, the indented lines right under it travel with it, and numbers are not renumbered. A move is refused if the line under the cursor is no longer the one drawn. CRLF or LF per line, a BOM and a missing final newline are kept (`core/mdfile.js`, `core/lists.js`). The widget ids `todos`, `notes` and `priorities` are in force too (see the widget ids above).
 
 - **Breaking:** a format change that makes existing files unreadable, or that rewrites content Friday did not change (R10).
 - **Required path:** always read the older format, and never reformat a file wholesale.
