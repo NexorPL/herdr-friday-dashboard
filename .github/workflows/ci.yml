@@ -7,8 +7,8 @@ on:
     branches: [main]
     paths-ignore: ['**.md', 'docs/**', '.ai/**']
   pull_request:
+    # No paths-ignore here: the test check is required on main, so a docs-only PR must report it too.
     types: [opened, synchronize, reopened, ready_for_review]
-    paths-ignore: ['**.md', 'docs/**', '.ai/**']
   workflow_dispatch:
 
 # A new push to a PR cancels its older run; runs on main always finish.
