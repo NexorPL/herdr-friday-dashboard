@@ -8,6 +8,7 @@ import { favoriteRows, favoriteKeys } from "../core/favorites.js";
 import { dataPath, FAVORITES_FILE, moveInFavorites, readDataText } from "../store.js";
 import { openLink, openPath } from "../open.js";
 import { button, note, rowAction, tip } from "../ui.js";
+import { deleteRowAt } from "./lists.js";
 
 /** The rows to draw now, for the view and its keys alike. */
 export function favoriteList(v) {
@@ -77,7 +78,8 @@ export function renderFavorites(v) {
       .child(button(t, "fav-add", "Add favorite (a)", () => v.openAddFavorite()))
       .child(button(t, "fav-edit", "Edit file (e)", () => openPath(favoritesFile())))
       .child(button(t, "fav-up", "▲ Up", (_e, cx) => moveFavoriteRow(v, rows, "up", cx)))
-      .child(button(t, "fav-down", "▼ Down", (_e, cx) => moveFavoriteRow(v, rows, "down", cx))))
+      .child(button(t, "fav-down", "▼ Down", (_e, cx) => moveFavoriteRow(v, rows, "down", cx)))
+      .child(button(t, "fav-delete", "Delete (Del)", (_e, cx) => deleteRowAt(v, "favorites", rows[v.cursor], rows[v.cursor]?.key, cx))))
     .when(rows.length === 0, (el) => el.child(note(t, "No favorites yet. Add a Jira key.")))
     .children(rows.map((r, i) => h_flex().id(`fav-${i}`).gap(8).px(4).h(24).items_center().rounded(4).cursor_pointer()
       .when(i === v.cursor, (el) => el.bg(t.selected))

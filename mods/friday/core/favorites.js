@@ -1,8 +1,8 @@
 // favorites.md (D26, R10): one Jira key per line, in the owner's order. Friday adds a key at the end
-// and moves a key's line up or down (D45); it deletes and rewrites nothing.
+// moves a key's line up or down (D45) and deletes the line of one key the owner confirmed; it rewrites nothing.
 import { jiraKeys } from "./jira.js";
 import { isJiraKey } from "./ledger.js";
-import { addLine, editMd, moveLines, onlyMoved, parseMd } from "./mdfile.js";
+import { addLine, editMd, moveLines, onlyMoved, onlyRemoved, parseMd, renderMd } from "./mdfile.js";
 
 /** The keys of favorites.md in file order, each once; text that has no key is ignored. */
 export function favoriteKeys(text) {
@@ -63,4 +63,20 @@ export function moveFavorite(io, path, key, dir) {
     plan = r?.plan ?? null;
     return r ? r.text : null;
   }, (before, after) => plan !== null && onlyMoved(before, after, plan));
+}
+
+/**
+ * Deletes a favorite (the owner confirmed first): the first line of `key`, like moveKey. A key that
+ * repeats on a later line shows again, since favoriteKeys reads it once. { ok, changed } or { ok: false, message }.
+ */
+// shortcut: only the first line of a repeated key goes, upgrade when favorites.md is expected to hold duplicates
+export function deleteFavorite(io, path, key) {
+  let at = -1;
+  return editMd(io, path, (text) => {
+    const doc = parseMd(text ?? "");
+    at = doc.lines.findIndex((l) => jiraKeys(l.text)[0] === key);
+    if (at < 0) return null;
+    doc.lines.splice(at, 1);
+    return renderMd(doc);
+  }, (before, after) => at >= 0 && onlyRemoved(before, after, at, 1));
 }
