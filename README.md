@@ -1,8 +1,29 @@
 # Friday for herdr-app
 
+[![CI](https://github.com/NexorPL/herdr-friday-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/NexorPL/herdr-friday-dashboard/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![herdr-app 0.1.12](https://img.shields.io/badge/herdr--app-0.1.12-blue)](https://github.com/herdrdev/herdr-app)
+[![Windows](https://img.shields.io/badge/Windows-supported-blue?logo=windows)](#platforms)
+[![macOS](https://img.shields.io/badge/macOS-partial-yellow?logo=apple)](#platforms)
+[![Linux](https://img.shields.io/badge/Linux-partial-yellow?logo=linux&logoColor=white)](#platforms)
+
 Friday is a work dashboard for [herdr-app](https://github.com/herdrdev/herdr-app), written as one JavaScript mod (`mods/friday`). A Friday tab holds several panes of the mod, each showing one widget: summary, meetings, Jira favorites, Azure DevOps pull requests, the review ledger, priorities, todos, notes and a board. herdr-app moves, resizes and splits the panes. Nothing runs when herdr-app is closed.
 
 Checked against herdr-app 0.1.12.
+
+![Friday's board layout in herdr-app, with made-up data](docs/friday-board-layout.png)
+
+The picture shows the Friday blocks of `layouts/friday-board.json` (without the sidebar, the tab bar and the terminal), filled with made-up data from `scripts/demo-home.mjs`. Meetings is still loading in it, and Jira and Azure DevOps show the seeded cache instead of a live connection.
+
+## Platforms
+
+| System | Status |
+|---|---|
+| Windows | Developed and used here. Everything works, including the remembered Friday tab. |
+| macOS | Partial. Opening links and files is handled, but the Friday tab is not remembered, and the author does not use it daily. |
+| Linux | As macOS. |
+
+"Your arrangement is remembered" below reads an internal file of herdr-core by its Windows path, so elsewhere it does nothing and the default arrangement stays. The tests in `core/` run on Linux for every pull request, and on Linux, macOS and Windows when started by hand.
 
 ## Install
 
@@ -85,6 +106,18 @@ Friday's layouts draw the pane header themselves, so a pane in a Friday tab has 
 The button stands before the tabs because herdr-app's tab bar is read-only and draws the window buttons at its right edge. On macOS with the sidebar hidden, the window buttons cover it.
 
 Keep the Friday tab open anyway. Another layout starts its mods fresh, while mod panes in a tab stay alive, so the tab keeps the meeting alerts running whichever layout is shown.
+
+## Connect your accounts
+
+Meetings, Jira and Azure DevOps stay off until you set them up in Settings (the gear in a pane header). Each widget shows what is missing. Friday only calls the services you configure, and the Jira and Azure DevOps tokens are the ones you create yourself.
+
+| Widget | You need | Settings |
+|---|---|---|
+| Meetings | The secret iCal address of your calendar (Outlook on the web: Settings, Calendar, Shared calendars, Publish a calendar; Google Calendar: Settings, Integrate calendar, Secret address in iCal format). Anyone with the address can read the calendar. | Calendar |
+| Jira | A Jira Cloud site (`https://your-team.atlassian.net`), your account email and an [API token](https://id.atlassian.com/manage-profile/security/api-tokens). A **scoped** token needs `read:jira-work` and `write:jira-work`; the write scope is only used to log time you confirmed. A **classic** token also works: set the token kind to match. | Jira |
+| Azure DevOps | The organization (the name in `dev.azure.com/your-org`) and a personal access token with the **Code (Read)** scope. Friday never writes to Azure DevOps. | Azure DevOps |
+
+The iCal address and both tokens are stored in `secrets.json` in the data folder (see Data), never in `settings.json`, and Friday never shows them again after you save. A token's scope is the only limit on what it can do, so give it no more than the table says.
 
 ## Review ledger (optional)
 
