@@ -291,7 +291,7 @@ export default class Friday extends View {
     else if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
     else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
     else if (id === "todos" && (e.key === "space" || e.key === " " || e.key === "enter")) toggleTodoRow(this, rows[this.cursor], cx);
-    else if (id === "todos" && e.key === "b") todoToBoard(this, rows[this.cursor], cx);
+    else if ((id === "todos" || id === "priorities") && e.key === "b") todoToBoard(this, rows[this.cursor], cx);
     else if (id === "priorities" && e.key === "enter" && rows[this.cursor]?.url) openLink(rows[this.cursor].url);
     else if (id === "notes" && (e.key === "a" || e.key === "n")) this.noteInput.focus();
     else if (e.key === "a") this.openAddLine();

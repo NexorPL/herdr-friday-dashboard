@@ -63,16 +63,17 @@ export function moveListRowAt(v, rows, dir, cx) {
   });
 }
 
-/** `b` or the row's button: puts the todo's text on the board's TODO column, unless a card with that text is there. */
+/** `b` or the row's button: puts the todo's (or priority's) text on the board's TODO column, unless a card with that text is there. */
 export function todoToBoard(v, row, cx) {
   if (!row || v.busy) return;
+  const text = (row.body ?? row.text).trim(); // a todo row has `body`, a priority row `text`
   v.busy = true;
   v.message = null;
   cx.spawn(async (cx) => {
     try {
-      const r = await addToBoard("todo", row.body.trim(), true).catch(() => ({ ok: false, message: "could not write the file" }));
+      const r = await addToBoard("todo", text, true).catch(() => ({ ok: false, message: "could not write the file" }));
       v.message = r.ok ? (r.changed ? "added to the board" : "already on the board") : r.message;
-      if (r.ok && r.changed && jiraKeys(row.body).length > 0) setShared(SETTINGS_REV, Date.now()); // a new key reaches Jira on the next poll
+      if (r.ok && r.changed && jiraKeys(text).length > 0) setShared(SETTINGS_REV, Date.now()); // a new key reaches Jira on the next poll
     } finally {
       v.busy = false;
       cx.notify();
@@ -148,6 +149,7 @@ export function renderPriorities(v) {
       .child(div().w(20).flex_none().text_size(11).text_color(t.dim).child(String(r.n)))
       .child(div().w(76).flex_none().truncate().text_size(12).text_color(t.accent).child(r.key ?? ""))
       .child(tip(div().flex_1().truncate().text_size(12.5).child(r.label), r.label))
-      .child(div().w(84).flex_none().truncate().text_size(11).text_color(t.dim).child(r.status)),
+      .child(div().w(84).flex_none().truncate().text_size(11).text_color(t.dim).child(r.status))
+      .child(button(t, `pri-board-${r.n}`, "To board (b)", (_e, cx) => todoToBoard(v, r, cx))),
   });
 }
