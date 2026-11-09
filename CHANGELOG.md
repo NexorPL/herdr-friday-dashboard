@@ -2,6 +2,14 @@
 
 Friday follows [SemVer](https://semver.org). Before 1.0 a breaking change goes in a minor bump, with a migration note here. The surfaces that count as breaking are listed in `BACKWARD_COMPATIBILITY.md`.
 
+## 0.1.2
+
+Checked against herdr-app 0.1.14. Existing data files and `settings.json` work as they are.
+
+- **Pull requests**: read the pull requests of several repos of one project. Settings picks the repos with a checklist after **Test**; the widget lists them together, newest first, with the repo named on each row. Each repo has its own silent first read and its own new-PR toasts, and a repo that fails keeps its last rows while the others are still read (D52).
+- **Setting**: `azure_devops.repos` is the list of repo names. The older `azure_devops.repo` is still read when `repos` is empty, so nothing needs migrating; saving repos from Settings drops the old key. `prs.json` is unchanged.
+- **Fix**: the **To board (b)** button of the priorities and todos widgets stays in view in a narrow pane, with long labels cut by an ellipsis, instead of being pushed out of it.
+
 ## 0.1.1
 
 Checked against herdr-app 0.1.14. No format or setting changes: existing data files and `settings.json` work as they are.
