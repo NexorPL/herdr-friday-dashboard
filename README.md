@@ -2,14 +2,14 @@
 
 [![CI](https://github.com/NexorPL/herdr-friday-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/NexorPL/herdr-friday-dashboard/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![herdr-app 0.1.12](https://img.shields.io/badge/herdr--app-0.1.12-blue)](https://github.com/herdrdev/herdr-app)
+[![herdr-app 0.1.14](https://img.shields.io/badge/herdr--app-0.1.14-blue)](https://github.com/herdrdev/herdr-app)
 [![Windows](https://img.shields.io/badge/Windows-supported-blue?logo=windows)](#platforms)
 [![macOS](https://img.shields.io/badge/macOS-partial-yellow?logo=apple)](#platforms)
 [![Linux](https://img.shields.io/badge/Linux-partial-yellow?logo=linux&logoColor=white)](#platforms)
 
 Friday is a work dashboard for [herdr-app](https://github.com/herdrdev/herdr-app), written as one JavaScript mod (`mods/friday`). A Friday tab holds several panes of the mod, each showing one widget: summary, meetings, Jira favorites, Azure DevOps pull requests, the review ledger, priorities, todos, notes and a board. herdr-app moves, resizes and splits the panes. Nothing runs when herdr-app is closed.
 
-Checked against herdr-app 0.1.12.
+Checked against herdr-app 0.1.14.
 
 ![Friday's board layout in herdr-app, with made-up data](docs/friday-board-layout.png)
 
