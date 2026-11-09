@@ -87,7 +87,7 @@ export function boardKey(v, e, cx) {
   v.message = null;
   if (dir && e.modifiers?.shift === true) moveTo(v, sel.card, movePlace(board, sel, dir), cx);
   else if (dir) v.sel = nextSelection(board, sel, dir);
-  else if (e.key === "a") v.openAddLine("board", sel.column);
+  else if (e.key === "a" || e.key === "+" || e.key_char === "+") v.openAddLine("board", sel.column); // "+" is the numpad key too
   else if (e.key === "enter" || e.key === "o") openCard(v, sel.card);
   else if (e.key === "e") editFile(v);
   else if (e.key === "n") v.openAddLine("notes");
@@ -121,6 +121,8 @@ function offerView(v, t) {
     .child(button(t, "bd-import", "Import", (_e, cx) => runImport(v, importToBoard, cx), true))
     .child(button(t, "bd-dismiss", "Dismiss", (_e, cx) => runImport(v, dismissImport, cx)));
 }
+
+const LEGEND = "arrows select · Shift+arrows move · a or + add · Enter or o open in Jira · n note · e edit file · r refresh";
 
 const pill = (text, color) => div().flex_none().px(6).rounded(8).border_1().border_color(color).text_size(10.5).text_color(color).child(text);
 
@@ -193,11 +195,13 @@ export function renderBoard(v) {
     .on_mouse_down("left", (_e, cx) => cancelDrag(v, cx))
     .on_mouse_down_out((_e, cx) => cancelDrag(v, cx)) // a pointer that left too fast for a hover event
     .on_mouse_up("left", (_e, cx) => drop(v, cx))
+    .child(h_flex().flex_none().child(button(t, "bd-add", "+ Add card", () => v.openAddLine("board", sel.column)))) // the selected column; a is the same
     .when(Boolean(v.list.error), (el) => el.child(note(t, `${v.list.error}${v.list.text === null ? "" : " (showing the last read)"}`, "error")))
     .when(Boolean(v.message), (el) => el.child(note(t, v.message, "stale")))
     .when(board.outside > 0, (el) => el.child(note(t, `${board.outside} ${board.outside === 1 ? "line" : "lines"} in the file not shown`, "stale")))
     .when(unknown > 0, (el) => el.child(note(t, `${unknown} ${unknown === 1 ? "card" : "cards"} without status`, "stale")))
     .when(v.offer.length > 0, (el) => el.child(offerView(v, t)))
     .when(empty && !v.list.error && v.offer.length === 0, (el) => el.child(note(t, "No cards yet. Add one with a.")))
-    .child(h_flex().flex_1().min_h(0).gap(8).items_stretch().children(board.columns.map((col) => columnView(v, t, col, sel, issues)))); // h_flex centers its children: without the stretch a column collapses to its header and no card shows
+    .child(h_flex().flex_1().min_h(0).gap(8).items_stretch().children(board.columns.map((col) => columnView(v, t, col, sel, issues)))) // h_flex centers its children: without the stretch a column collapses to its header and no card shows
+    .child(div().flex_none().truncate().text_size(11).text_color(t.dim).child(LEGEND));
 }
