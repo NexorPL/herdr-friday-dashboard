@@ -1,8 +1,25 @@
 # Friday for herdr-app
 
+[![CI](https://github.com/NexorPL/herdr-friday-dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/NexorPL/herdr-friday-dashboard/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![herdr-app 0.1.12](https://img.shields.io/badge/herdr--app-0.1.12-blue)](https://github.com/herdrdev/herdr-app)
+[![Windows](https://img.shields.io/badge/Windows-supported-blue?logo=windows)](#platforms)
+[![macOS](https://img.shields.io/badge/macOS-partial-yellow?logo=apple)](#platforms)
+[![Linux](https://img.shields.io/badge/Linux-partial-yellow?logo=linux&logoColor=white)](#platforms)
+
 Friday is a work dashboard for [herdr-app](https://github.com/herdrdev/herdr-app), written as one JavaScript mod (`mods/friday`). A Friday tab holds several panes of the mod, each showing one widget: summary, meetings, Jira favorites, Azure DevOps pull requests, the review ledger, priorities, todos, notes and a board. herdr-app moves, resizes and splits the panes. Nothing runs when herdr-app is closed.
 
 Checked against herdr-app 0.1.12.
+
+## Platforms
+
+| System | Status |
+|---|---|
+| Windows | Developed and used here. Everything works, including the remembered Friday tab. |
+| macOS | Partial. Opening links and files is handled, but the Friday tab is not remembered, and the author does not use it daily. |
+| Linux | As macOS. |
+
+"Your arrangement is remembered" below reads an internal file of herdr-core by its Windows path, so elsewhere it does nothing and the default arrangement stays. The tests in `core/` run on Linux for every pull request, and on Linux, macOS and Windows when started by hand.
 
 ## Install
 
