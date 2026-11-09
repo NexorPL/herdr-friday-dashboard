@@ -7,7 +7,7 @@ import { theme } from "herdr";
 import { favoriteRows, favoriteKeys } from "../core/favorites.js";
 import { dataPath, FAVORITES_FILE, moveInFavorites, readDataText } from "../store.js";
 import { openLink, openPath } from "../open.js";
-import { button, note, tip } from "../ui.js";
+import { button, note, rowAction, tip } from "../ui.js";
 
 /** The rows to draw now, for the view and its keys alike. */
 export function favoriteList(v) {
@@ -83,6 +83,8 @@ export function renderFavorites(v) {
       .when(i === v.cursor, (el) => el.bg(t.selected))
       .hover((s) => s.bg(t.hover))
       .on_click((e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); if (e.click_count >= 2) logRow(v, r); cx.notify(); }) // a click selects; a double-click or Enter opens the time log
+      .child(rowAction(t, `fav-open-${i}`, "↗", "Open in Jira", r.url ? () => openLink(r.url) : null))
+      .child(rowAction(t, `fav-log-${i}`, "✎", "Log time (Enter)", (_e, cx) => { v.cursor = i; logRow(v, r); cx.notify(); }))
       .child(div().w(84).flex_none().truncate().text_size(12).text_color(r.missing ? t.dim : t.accent).child(r.key))
       .child(tip(div().flex_1().truncate().text_size(12.5).text_color(r.missing ? t.dim : t.foreground).child(r.missing ? "not found" : r.summary), r.missing ? "" : r.summary))
       .child(div().w(84).flex_none().truncate().text_size(11).text_color(t.dim).child(r.status))

@@ -10,7 +10,7 @@ import { todoRows, noteRows, priorityRows, submitLine } from "../core/lists.js";
 import { dataPath, LIST_FILES, toggleInTodos, addToList, addToBoard, moveInList } from "../store.js";
 import { field } from "../dialogs/jira-dialogs.js";
 import { openLink, openPath } from "../open.js";
-import { button, note, tip } from "../ui.js";
+import { button, note, rowAction, tip } from "../ui.js";
 
 const listFile = (id) => dataPath(LIST_FILES[id]).replaceAll("\\", "/");
 
@@ -144,6 +144,7 @@ export function renderPriorities(v) {
   return renderList(v, priorityList(v), {
     click: (_v, r, _cx, e) => { if (r.url && e.click_count >= 2) openLink(r.url); }, // a click selects; a double-click or Enter opens the issue
     row: (t, r) => h_flex().gap(8).flex_1()
+      .child(rowAction(t, `pri-open-${r.n}`, "↗", "Open in Jira (Enter)", r.url ? () => openLink(r.url) : null))
       .child(div().w(20).flex_none().text_size(11).text_color(t.dim).child(String(r.n)))
       .child(div().w(76).flex_none().truncate().text_size(12).text_color(t.accent).child(r.key ?? ""))
       .child(tip(div().flex_1().truncate().text_size(12.5).child(r.label), r.label))

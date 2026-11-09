@@ -7,7 +7,7 @@ import { theme } from "herdr";
 import { minutesText, weekdayOf } from "../core/format.js";
 import { totalFor } from "../core/ledger.js";
 import { openLink } from "../open.js";
-import { button, note, tip } from "../ui.js";
+import { button, note, rowAction, tip } from "../ui.js";
 
 /** At most this many days are drawn; the rest stay in the file. */
 const MAX_DRAWN_DAYS = 60;
@@ -76,7 +76,8 @@ export function renderLedger(v) {
           return h_flex().id(`led-${d.date}-${i}`).gap(8).px(4).h(22).items_center().rounded(4).cursor_pointer()
             .when(here, (el) => el.bg(t.selected))
             .hover((s) => s.bg(t.hover))
-            .on_click((_e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); openLink(r.pr_url); cx.notify(); })
+            .on_click((e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); if (e.click_count >= 2) openLink(r.pr_url); cx.notify(); }) // a click selects; a double-click or Enter opens the pull request
+            .child(rowAction(t, `led-open-${d.date}-${i}`, "↗", "Open the pull request (Enter)", r.pr_url ? (_e, cx) => { v.cursor = i; openLink(r.pr_url); cx.notify(); } : null))
             .child(link(t, `led-t-${d.date}-${i}`, r.task ? r.task.key : "—", r.task ? r.task.url : null, 76))
             .child(link(t, `led-p-${d.date}-${i}`, `!${r.pr}`, r.pr_url, 56))
             .child(div().w(34).flex_none().text_size(12).text_color(t.muted).child(`${r.runs}×`))

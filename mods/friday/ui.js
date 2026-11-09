@@ -25,6 +25,15 @@ export function iconButton(t, id, glyph, onClick) {
     .child(glyph);
 }
 
+/**
+ * One action icon at the start of a row, with its name as a hover label. A row with no such action
+ * gets a blank cell of the same width, so the rows line up. A click on the icon does not select the row.
+ */
+export function rowAction(t, id, glyph, label, onClick) {
+  if (!onClick) return div().w(24).h(24).flex_none();
+  return tip(iconButton(t, id, glyph, onClick), label);
+}
+
 export const openSettingsDialog = (section) => openOverlay({ mod: "friday", kind: "dialog", width: 540, height: 620, props: { dialog: "settings", section } });
 
 /** The + menu; it splits `pane`. */

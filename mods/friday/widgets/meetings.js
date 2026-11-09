@@ -7,7 +7,7 @@ import { theme } from "herdr";
 import { todayRows, rowTime, localDay } from "../core/meetings.js";
 import { offsetNow } from "../net.js";
 import { openLink } from "../open.js";
-import { button, note, tip } from "../ui.js";
+import { button, note, rowAction, tip } from "../ui.js";
 
 /** The rows to draw now, for the view and its keys alike. */
 export function meetingRows(v, now = Date.now()) {
@@ -52,7 +52,8 @@ export function renderMeetings(v) {
     .children(rows.map((r, i) => h_flex().id(`mt-${i}`).gap(8).px(4).h(24).items_center().rounded(4).cursor_pointer()
       .when(i === v.cursor, (el) => el.bg(t.selected))
       .hover((s) => s.bg(t.hover))
-      .on_click((_e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); joinRow(v, r); cx.notify(); })
+      .on_click((e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); if (e.click_count >= 2) joinRow(v, r); cx.notify(); }) // a click selects; a double-click or Enter joins
+      .child(rowAction(t, `mt-join-${i}`, "▶", `Join ${r.join_kind ?? "the meeting"} (Enter)`, r.join_url ? (_e, cx) => { v.cursor = i; joinRow(v, r); cx.notify(); } : null))
       .child(div().w(54).flex_none().text_size(12).text_color(r.past ? t.dim : t.muted).child(rowTime(r, offsetMin)))
       .child(tip(div().flex_1().truncate().text_size(12.5).text_color(r.past ? t.dim : t.foreground).child(r.title), r.title))
       .child(div().flex_none().text_size(11).text_color(t.accent).child(r.join_kind ?? ""))));

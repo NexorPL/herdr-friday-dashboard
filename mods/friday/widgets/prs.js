@@ -5,7 +5,7 @@ import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { theme } from "herdr";
 import { openLink } from "../open.js";
-import { button, note, tip } from "../ui.js";
+import { button, note, rowAction, tip } from "../ui.js";
 
 /** The rows to draw now, for the view and its keys alike. */
 export function prRows(v) {
@@ -46,7 +46,8 @@ export function renderPrs(v) {
     .children(rows.map((r, i) => h_flex().id(`pr-${i}`).gap(8).px(4).h(24).items_center().rounded(4).cursor_pointer()
       .when(i === v.cursor, (el) => el.bg(t.selected))
       .hover((s) => s.bg(t.hover))
-      .on_click((_e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); openPr(v, r, cx); cx.notify(); })
+      .on_click((e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); if (e.click_count >= 2) openPr(v, r, cx); cx.notify(); }) // a click selects; a double-click or Enter opens
+      .child(rowAction(t, `pr-open-${i}`, "↗", "Open the pull request (Enter)", (_e, cx) => { v.cursor = i; openPr(v, r, cx); cx.notify(); }))
       .child(div().w(12).flex_none().text_size(12).text_color(t.accent).child(r.unseen ? "●" : ""))
       .child(div().w(52).flex_none().truncate().text_size(12).text_color(t.accent).child(`!${r.id}`))
       .child(tip(div().flex_1().truncate().text_size(12.5).child(r.title), r.title))
