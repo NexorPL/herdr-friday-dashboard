@@ -115,7 +115,7 @@ Meetings, Jira and Azure DevOps stay off until you set them up in Settings (the 
 |---|---|---|
 | Meetings | The secret iCal address of your calendar (Outlook on the web: Settings, Calendar, Shared calendars, Publish a calendar; Google Calendar: Settings, Integrate calendar, Secret address in iCal format). Anyone with the address can read the calendar. | Calendar |
 | Jira | A Jira Cloud site (`https://your-team.atlassian.net`), your account email and an [API token](https://id.atlassian.com/manage-profile/security/api-tokens). A **scoped** token needs `read:jira-work` and `write:jira-work`; the write scope is only used to log time you confirmed. A **classic** token also works: set the token kind to match. | Jira |
-| Azure DevOps | The organization (the name in `dev.azure.com/your-org`) and a personal access token with the **Code (Read)** scope. Friday never writes to Azure DevOps. | Azure DevOps |
+| Azure DevOps | The organization (the name in `dev.azure.com/your-org`) and a personal access token with the **Code (Read)** scope. After **Test**, pick the project and one or more of its repositories; the pull requests of all of them are listed, with the repository named on each row. Friday never writes to Azure DevOps. | Azure DevOps |
 
 The iCal address and both tokens are stored in `secrets.json` in the data folder (see Data), never in `settings.json`, and Friday never shows them again after you save. A token's scope is the only limit on what it can do, so give it no more than the table says.
 

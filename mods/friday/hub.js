@@ -4,7 +4,8 @@
 // the result to shared("friday.<source>") and its record to shared("friday.status"); every other
 // copy re-renders from those values. A lost race costs nothing, because only the lease holder reads.
 import { shared, setShared, readTextFile, notify, playSound } from "herdr";
-import { loadSettings, resolvePath, readSecret, readDataText, readAlertsSent, claimAlerts, recordPrs, markPrsSeen } from "./store.js";
+import { loadSettings, resolvePath, readSecret, readDataText, readAlertsSent, claimAlerts, recordPrs, markPrsSeen, readPrRows } from "./store.js";
+import { adoRepos } from "./core/ado.js";
 import { repoKey, prToast } from "./core/prs.js";
 import { dueAlerts, alertText } from "./core/alerts.js";
 import { runCalendar, runJira, runAdo, offsetNow } from "./net.js";
@@ -58,7 +59,7 @@ export function sourceKey(source, values) {
   }
   if (source === "ado") {
     const a = values.azure_devops;
-    return `ado:${a.organization ?? ""}|${a.project ?? ""}|${a.repo ?? ""}`;
+    return `ado:${a.organization ?? ""}|${a.project ?? ""}|${adoRepos(a).join(",")}`;
   }
   return source;
 }
@@ -260,36 +261,49 @@ export class Hub {
    */
   async fetchAdo(cx, prev, key, interval, now) {
     const a = this.settings.values.azure_devops;
+    const repos = adoRepos(a);
     const pat = await readSecret("ado_pat");
-    if (!pat || !a.organization || !a.project || !a.repo) {
+    if (!pat || !a.organization || !a.project || repos.length === 0) {
       if (shared(PRS)) setShared(PRS, null);
       return { ...succeeded(now), ok_at: null, not_set_up: true, for: key };
     }
-    const r = await runAdo(cx, { organization: a.organization, project: a.project, repo: a.repo, pat });
-    if (!r.ok) return { ...failed(prev, now, interval, { status: r.status ?? null, message: r.message }), for: key };
-    let rec;
-    try {
-      rec = await recordPrs(repoKey(a.organization, a.project, a.repo), r.value.prs, now);
-    } catch (e) {
-      const newer = Number.isInteger(e?.version) ? `ado: prs.json is version ${e.version}; this Friday reads version 1` : "ado: could not update prs.json";
-      return { ...failed(prev, now, interval, { message: newer }), for: key };
+    // Each repo is fetched and recorded on its own; one that fails keeps its last rows in prs.json and the others are still read.
+    const owed = [];
+    let failure = null;
+    let read = 0;
+    for (const repo of repos) {
+      const r = await runAdo(cx, { organization: a.organization, project: a.project, repo, pat });
+      if (!r.ok) {
+        failure ??= { status: r.status ?? null, message: repos.length > 1 ? `${r.message} (${repo})` : r.message };
+        continue;
+      }
+      try {
+        owed.push(...(await recordPrs(repoKey(a.organization, a.project, repo), r.value.prs, now)).owed);
+        read++;
+      } catch (e) {
+        const newer = Number.isInteger(e?.version) ? `ado: prs.json is version ${e.version}; this Friday reads version 1` : "ado: could not update prs.json";
+        return { ...failed(prev, now, interval, { message: newer }), for: key };
+      }
     }
+    if (read === 0) return { ...failed(prev, now, interval, failure), for: key };
     const old = shared(PRS);
-    const data = { prs: rec.rows.slice(0, 100) };
+    const data = { prs: (await readPrRows(a.organization, a.project, repos)).slice(0, 100) };
     if (!old || old.for !== key || JSON.stringify(old.data) !== JSON.stringify(data)) setShared(PRS, { data, for: key, ok_at: now });
-    for (const pr of rec.owed) notify({ ...prToast(pr), level: "info" });
+    for (const pr of owed) notify({ ...prToast(pr), level: "info" });
     const sound = this.settings.values.notifications.sound;
-    if (rec.owed.length && sound !== "none") playSound(sound);
-    return { ...succeeded(now), for: key };
+    if (owed.length && sound !== "none") playSound(sound);
+    return { ...(failure ? failed(prev, now, interval, failure) : succeeded(now)), for: key };
   }
 
-  /** Enter or a click on a PR (`id`), or "mark all seen" (null): clears the mark in prs.json and in shared(). */
-  markSeen(cx, id) {
+  /** Enter or a click on a PR (`id` of a row of `repo`), or "mark all seen" (null): clears the mark in prs.json and in shared(). */
+  markSeen(cx, id, repo = null) {
     const key = this.key("ado");
     const a = this.settings.values.azure_devops;
     cx.spawn(async (cx) => {
       try {
-        const rows = await markPrsSeen(repoKey(a.organization, a.project, a.repo), id);
+        const repos = adoRepos(a);
+        for (const name of id !== null && repo ? [repo] : repos) await markPrsSeen(repoKey(a.organization, a.project, name), id);
+        const rows = await readPrRows(a.organization, a.project, repos);
         const cur = shared(PRS);
         if (cur && cur.for === key) setShared(PRS, { ...cur, data: { prs: rows.slice(0, 100) } });
       } catch {

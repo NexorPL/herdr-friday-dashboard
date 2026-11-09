@@ -1,5 +1,5 @@
 // The Azure DevOps section of the Settings dialog: organization, polling interval, the secret PAT
-// (masked, write-only) and the project-then-repo picker. The PAT goes to secrets.json and is never
+// (masked, write-only) and the project-then-repos picker (one or several repos of a project). The PAT goes to secrets.json and is never
 // read back into the dialog; the section only learns from the hub's status whether Azure DevOps is
 // set up. Test lists the organization's repositories (which also fills the picker) and shows OK or
 // an error made of "ado" and a status, never the PAT.
@@ -9,7 +9,7 @@ import { setShared } from "herdr";
 import { loadSettings, saveSettings, saveSecret, readSecret } from "../store.js";
 import { currentStatus, SETTINGS_REV } from "../hub.js";
 import { runAdoTest } from "../net.js";
-import { FETCH_TIMEOUT_MS, orgName } from "../core/ado.js";
+import { FETCH_TIMEOUT_MS, adoRepos, orgName } from "../core/ado.js";
 import { testAdoSettings, savePat } from "../core/adoform.js";
 import { SettingsError } from "../core/settings.js";
 import { button, note } from "../ui.js";
@@ -23,8 +23,8 @@ export class AdoState {
     this.groups = null; // [{ project, repos: [{ id, name }] }] after a Test
     this.groupsOrg = null; // the organization the picker's groups came from
     this.open = null; // the project whose repos the picker shows
-    this.project = null; // the chosen project and repo (saved with Save)
-    this.repo = null;
+    this.project = null; // the chosen project and its repos (saved with Save)
+    this.repos = [];
     this.pat = InputState.new({ value: "", placeholder: "Paste the personal access token" });
     this.pat.set_masked(true);
     this.organization = InputState.new({ value: "", placeholder: "your-org (from dev.azure.com/your-org)" });
@@ -36,7 +36,7 @@ export class AdoState {
     this.organization.set_value(a.organization ?? "");
     this.interval.set_value(a.interval);
     this.project = a.project;
-    this.repo = a.repo;
+    this.repos = adoRepos(a);
     this.open ??= a.project;
     this.from = settings.text;
   }
@@ -68,7 +68,7 @@ function saveOptions(dialog, st, cx) {
   const org = orgName(typed);
   if (org !== (dialog.settings.values.azure_devops.organization ?? null) && org !== st.groupsOrg) {
     st.project = null;
-    st.repo = null;
+    st.repos = [];
     st.groups = null;
     st.open = null;
   }
@@ -77,7 +77,8 @@ function saveOptions(dialog, st, cx) {
       await saveSettings([
         ["azure_devops.organization", typed && orgName(typed)],
         ["azure_devops.project", st.project ?? ""],
-        ["azure_devops.repo", st.repo ?? ""],
+        ["azure_devops.repos", st.repos],
+        ["azure_devops.repo", ""], // the older single key is dropped once `repos` is saved
         ["azure_devops.interval", st.interval.value().trim()],
       ]);
       dialog.settings = await loadSettings();
@@ -89,6 +90,16 @@ function saveOptions(dialog, st, cx) {
       say(st, cx, named, "error", "options");
     }
   });
+}
+
+/** Picks or drops a repo. All repos are of one project: a pick in another project starts the list over. */
+function toggleRepo(st, project, name) {
+  if (st.project !== project) {
+    st.project = project;
+    st.repos = [name];
+  } else {
+    st.repos = st.repos.includes(name) ? st.repos.filter((r) => r !== name) : [...st.repos, name];
+  }
 }
 
 /** How long "Testing…" may stay. */
@@ -138,7 +149,7 @@ export function adoSection(dialog, t) {
   const msg = (where) => (st.message?.where === where ? note(t, st.message.text, st.message.state) : div());
   const label = (text) => div().text_size(11).text_color(t.dim).child(text);
   const status = stored === null ? ["Azure DevOps: checking…", "loading"] : !stored ? ["Azure DevOps: not set up", "loading"] : rec.rejected ? ["Azure DevOps: PAT rejected", "error"] : rec.error ? [rec.error, "error"] : ["Azure DevOps: connected", "ok"];
-  const chosen = st.project && st.repo ? `${st.project} / ${st.repo}` : "none yet";
+  const chosen = st.project && st.repos.length > 0 ? `${st.project} / ${st.repos.join(", ")}` : "none yet";
   const open = st.groups?.find((g) => g.project === st.open);
   return dialog.section(t, "ado", "Azure DevOps",
     div().text_size(11).text_color(t.dim).child("A personal access token (dev.azure.com, User settings, Personal access tokens) with the Code (Read) scope only. Friday never writes to Azure DevOps. It is stored in secrets.json in the data folder."),
@@ -154,11 +165,11 @@ export function adoSection(dialog, t) {
       .child(button(t, "ado-test", "Test", (_e, cx) => test(st, cx)))
       .child(button(t, "ado-remove", "Remove", (_e, cx) => savePatSecret(st, cx, true))),
     msg("pat"),
-    label(`Repository: ${chosen}`),
+    label(`Repositories: ${chosen}`),
     !st.groups ? note(t, "Test loads the projects and repositories to pick from.")
       : v_flex().gap(6)
         .child(h_flex().gap(6).flex_wrap().children(st.groups.map((g, i) => button(t, `ado-project-${i}`, g.project, (_e, cx) => { st.open = g.project; cx.notify(); }, g.project === st.open))))
-        .child(h_flex().gap(6).flex_wrap().children((open?.repos ?? []).map((r, i) => button(t, `ado-repo-${i}`, r.name, (_e, cx) => { st.project = open.project; st.repo = r.name; cx.notify(); }, st.project === open.project && st.repo === r.name)))),
+        .child(h_flex().gap(6).flex_wrap().children((open?.repos ?? []).map((r, i) => button(t, `ado-repo-${i}`, r.name, (_e, cx) => { toggleRepo(st, open.project, r.name); cx.notify(); }, st.project === open.project && st.repos.includes(r.name))))),
     h_flex().gap(8).items_center()
       .child(button(t, "ado-save", "Save", (_e, cx) => saveOptions(dialog, st, cx), true)),
     msg("options"));

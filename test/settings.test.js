@@ -15,7 +15,7 @@ const TEST = [
 const resolve = (raw) => resolveSettings(raw, TEST);
 
 test("the schema holds the ledger path, the calendar keys, the Jira keys and the Azure DevOps keys", () => {
-  assert.deepEqual(SCHEMA.map((s) => s.key), ["ledger.path", "calendar.email", "calendar.interval", "calendar.alerts", "jira.site", "jira.email", "jira.token_kind", "jira.interval", "azure_devops.organization", "azure_devops.project", "azure_devops.repo", "azure_devops.interval", "notifications.sound"]);
+  assert.deepEqual(SCHEMA.map((s) => s.key), ["ledger.path", "calendar.email", "calendar.interval", "calendar.alerts", "jira.site", "jira.email", "jira.token_kind", "jira.interval", "azure_devops.organization", "azure_devops.project", "azure_devops.repo", "azure_devops.repos", "azure_devops.interval", "notifications.sound"]);
   const { values } = resolveSettings({});
   assert.deepEqual(values.calendar, { email: null, interval: "10m", alerts: ["5m"] });
   assert.equal(values.notifications.sound, "done");
