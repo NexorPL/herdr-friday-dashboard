@@ -11,6 +11,10 @@ Friday is a work dashboard for [herdr-app](https://github.com/herdrdev/herdr-app
 
 Checked against herdr-app 0.1.12.
 
+![Friday's board layout in herdr-app, with made-up data](docs/friday-board-layout.png)
+
+The picture shows the Friday blocks of `layouts/friday-board.json` (without the sidebar, the tab bar and the terminal), filled with made-up data from `scripts/demo-home.mjs`. Meetings is still loading in it, and Jira and Azure DevOps show the seeded cache instead of a live connection.
+
 ## Platforms
 
 | System | Status |
