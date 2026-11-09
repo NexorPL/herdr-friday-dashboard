@@ -358,7 +358,7 @@ export default class Friday extends View {
         .bg(on ? t.selected : t.chrome).text_color(on ? t.foreground : t.muted)
         .hover((s) => s.bg(t.hover))
         .on_mouse_down("left", (_e, cx) => cx.stop_propagation())
-        .on_click(() => openOverlay({ mod: "friday", kind: "popup", width: 220, height: 44 + WIDGETS.length * 32, props: { dialog: "panel" } }))
+        .on_click(() => openOverlay({ mod: "friday", kind: "popup", width: 220, height: 76 + WIDGETS.length * 32, props: { dialog: "panel" } }))
         .child("Friday ▾"));
   }
 

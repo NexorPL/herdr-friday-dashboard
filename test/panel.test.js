@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { panelChild, panelOrder, shownWidgets, planPanel, planAutoHide, swapTarget, swapped, PANEL } from "../mods/friday/core/panel.js";
+import { panelChild, panelOrder, shownWidgets, checkedWidgets, planHideAll, planShowAll, planPanel, planAutoHide, swapTarget, swapped, PANEL } from "../mods/friday/core/panel.js";
 
 const WIDGETS = ["summary", "notes", "board"];
 const root = (...shown) => ({ id: "root", children: [
@@ -49,4 +49,21 @@ test("planAutoHide: closes an open panel in a tab with Friday panes, and only th
   assert.deepEqual(planAutoHide(root("summary"), panes, "t2"), [], "a terminal tab keeps the panel");
   assert.deepEqual(planAutoHide(root(), panes, "t1"), [], "a closed panel stays as it is");
   assert.deepEqual(planAutoHide(root("summary"), panes, undefined), [], "no focused tab");
+});
+
+test("planHideAll closes the open panel and keeps its widgets checked, planShowAll opens it again", () => {
+  assert.deepEqual(planHideAll(root("summary", "notes")), [hide(PANEL)]);
+  assert.deepEqual(planHideAll(root()), [], "a closed panel has nothing to hide");
+  const parked = { id: "root", children: [{ id: PANEL, hidden: true, children: WIDGETS.map((w) => ({ id: panelChild(w), hidden: w === "board" })) }] };
+  assert.deepEqual(checkedWidgets(parked), ["summary", "notes"]);
+  assert.deepEqual(shownWidgets(parked), [], "a hidden panel shows nothing");
+  assert.deepEqual(planShowAll(parked), [show(PANEL)]);
+  assert.deepEqual(planShowAll(root()), [], "nothing is kept checked");
+  assert.deepEqual(planShowAll(root("summary")), [], "an open panel is not shown again");
+});
+
+test("planPanel in a hidden panel that kept its widgets: unchecking leaves it hidden, checking opens it", () => {
+  const parked = { id: "root", children: [{ id: PANEL, hidden: true, children: WIDGETS.map((w) => ({ id: panelChild(w), hidden: w === "board" })) }] };
+  assert.deepEqual(planPanel(parked, "notes"), [hide(panelChild("notes"))]);
+  assert.deepEqual(planPanel(parked, "board"), [show(panelChild("board")), show(PANEL)]);
 });

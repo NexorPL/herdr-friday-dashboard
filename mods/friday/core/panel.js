@@ -48,6 +48,17 @@ export function shownWidgets(root) {
   return panel.children.filter((c) => !c.hidden).map(widgetOf);
 }
 
+/** The widgets the panel keeps checked, whether it is open or not: a hidden panel keeps its checked widgets, so the menu can show them again. */
+export const checkedWidgets = (root) => (find(root, PANEL)?.children ?? []).filter((c) => !c.hidden).map(widgetOf);
+
+export const panelHidden = (root) => Boolean(find(root, PANEL)?.hidden);
+
+/** "Hide the panel": closes the open panel and leaves its checked widgets checked. [] when it is not open. */
+export const planHideAll = (root) => (shownWidgets(root).length > 0 ? [["layout.hide", { id: PANEL }]] : []);
+
+/** "Show the panel": opens a closed panel with the widgets it kept checked. [] when there are none. */
+export const planShowAll = (root) => (panelHidden(root) && checkedWidgets(root).length > 0 ? [["layout.show", { id: PANEL }]] : []);
+
 /** Commands that close the open panel while the focused tab already holds Friday panes, so it does not repeat them; [] otherwise. */
 export function planAutoHide(root, panes, tab) {
   const shown = shownWidgets(root);
@@ -55,12 +66,17 @@ export function planAutoHide(root, panes, tab) {
   return [...shown.map((w) => ["layout.hide", { id: panelChild(w) }]), ["layout.hide", { id: PANEL }]];
 }
 
-/** Commands for a click on a widget's checkbox. The panel opens with its first widget and closes with its last. */
+/**
+ * Commands for a click on a widget's checkbox. The panel opens with its first widget and closes with
+ * its last. In a panel hidden with "Hide the panel", the kept widgets are still checked: unchecking
+ * one leaves the panel hidden, checking another opens it with them.
+ */
 export function planPanel(root, widget) {
-  const shown = shownWidgets(root);
+  const checked = checkedWidgets(root);
   const child = { id: panelChild(widget) };
-  if (!shown.includes(widget)) return [["layout.show", child], ["layout.show", { id: PANEL }]];
-  return shown.length === 1 ? [["layout.hide", child], ["layout.hide", { id: PANEL }]] : [["layout.hide", child]];
+  if (!checked.includes(widget)) return [["layout.show", child], ["layout.show", { id: PANEL }]];
+  if (panelHidden(root)) return [["layout.hide", child]];
+  return checked.length === 1 ? [["layout.hide", child], ["layout.hide", { id: PANEL }]] : [["layout.hide", child]];
 }
 
 /** The widget a shown widget swaps with for `delta` (-1 up, 1 down): its shown neighbour, past unchecked ones. Null at an end. */
