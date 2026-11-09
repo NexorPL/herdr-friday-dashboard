@@ -1,6 +1,6 @@
 # Backward compatibility
 
-These are the surfaces that the owner's saved state and files depend on. Each surface below enters in force in the phase of `.ai/specs/2026-11-02-friday-on-herdr-app.md` that ships it, and that phase's PR moves it from "Planned" to "In force".
+These are the surfaces that the owner's saved state and files depend on. Each surface below enters in force in the phase of the maintainer's local design (`.ai/specs/2026-11-02-friday-on-herdr-app.md`, not part of the repository) that ships it, and that phase's PR moves it from "Planned" to "In force".
 
 Versioning follows SemVer in `package.json`. Before 1.0, a breaking change goes in a minor bump with a migration note in the release notes.
 

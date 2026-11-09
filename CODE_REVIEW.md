@@ -1,6 +1,6 @@
 # Code review
 
-`om-code-review` applies these rules on top of its built-in checklist. Rule ids (`R`, `D`, `N`) refer to `.ai/specs/product-brief.md`.
+`om-code-review` applies these rules on top of its built-in checklist. Rule ids (`R`, `D`, `N`) refer to `.ai/specs/product-brief.md`, the maintainer's local product brief, which is not part of the repository.
 
 ## Priorities
 
