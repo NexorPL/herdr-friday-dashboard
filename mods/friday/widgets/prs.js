@@ -1,10 +1,11 @@
-// Active pull requests of the chosen Azure DevOps repo, newest first. A dot marks a new one (new
+// Active pull requests of the chosen Azure DevOps repos (one or several of a project), newest first. A dot marks a new one (new
 // since you last looked, G15), "draft" a draft. A click on a row, or Enter, opens the PR in the
 // browser and clears its mark; "Mark all seen" (m) clears every mark.
 import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
 import { theme } from "herdr";
 import { openLink } from "../open.js";
+import { adoRepos } from "../core/ado.js";
 import { button, note, rowAction, tip } from "../ui.js";
 
 /** The rows to draw now, for the view and its keys alike. */
@@ -17,7 +18,7 @@ export function prRows(v) {
 export function openPr(v, row, cx) {
   if (!row) return;
   openLink(row.url);
-  if (row.unseen) v.hub.markSeen(cx, row.id);
+  if (row.unseen) v.hub.markSeen(cx, row.id, row.repo);
 }
 
 export function renderPrs(v) {
@@ -37,6 +38,7 @@ export function renderPrs(v) {
   }
   const rows = prRows(v);
   const unseen = rows.filter((r) => r.unseen).length;
+  const showRepo = adoRepos(v.hub.settings.values.azure_devops).length > 1; // the repo's name on each row, when there are several
   return v_flex().size_full().overflow_y_scrollbar().p(10).gap(4)
     .when(state === "error", (el) => el.child(note(t, `${status?.error} (showing the last read)`, "error")))
     .when(rows.length === 0, (el) => el.child(note(t, "No active pull requests.")))
@@ -52,5 +54,6 @@ export function renderPrs(v) {
       .child(div().w(52).flex_none().truncate().text_size(12).text_color(t.accent).child(`!${r.id}`))
       .child(tip(div().flex_1().truncate().text_size(12.5).child(r.title), r.title))
       .child(div().w(44).flex_none().text_size(11).text_color(t.dim).child(r.is_draft ? "draft" : ""))
+      .when(showRepo, (el) => el.child(tip(div().w(110).flex_none().truncate().text_size(11).text_color(t.dim).child(r.repo ?? ""), r.repo ?? "")))
       .child(div().w(96).flex_none().truncate().text_size(11).text_color(t.muted).child(r.author))));
 }

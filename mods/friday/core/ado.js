@@ -15,6 +15,12 @@ export function orgName(input) {
   return m ? m[1] : null;
 }
 
+/** The repos to read: `repos` when it has any, else the single `repo` of an older settings.json. Each name once. */
+export function adoRepos(a) {
+  const named = Array.isArray(a?.repos) && a.repos.length > 0 ? a.repos : a?.repo ? [a.repo] : [];
+  return [...new Set(named)];
+}
+
 /** What is wrong with the typed organization, or null. Never quotes the PAT. */
 export function validateAdo({ organization }) {
   return orgName(organization) ? null : "ado: set your organization, for example your-org (from dev.azure.com/your-org)";

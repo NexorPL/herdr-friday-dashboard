@@ -22,7 +22,8 @@ export const SCHEMA = [
   { key: "jira.interval", kind: "interval", default: "5m" },
   { key: "azure_devops.organization", kind: "text", default: null },
   { key: "azure_devops.project", kind: "text", default: null },
-  { key: "azure_devops.repo", kind: "text", default: null },
+  { key: "azure_devops.repo", kind: "text", default: null }, // read for good: the one repo of a settings.json from before `repos`
+  { key: "azure_devops.repos", kind: "list", default: [] }, // the repos of the project to read; when empty, `repo` is the one repo
   { key: "azure_devops.interval", kind: "interval", default: "2m" },
   { key: "notifications.sound", kind: "choice", options: ["none", "done", "blocked"], default: "done" },
 ];
@@ -42,6 +43,8 @@ function check(entry, value) {
       return parseInterval(value) !== null ? value : undefined;
     case "durations":
       return parseDurations(value) !== null ? value : undefined;
+    case "list":
+      return Array.isArray(value) && value.every((v) => typeof v === "string" && v.trim() !== "") ? value : undefined;
     case "days":
       return Number.isInteger(value) && value > 0 ? value : undefined;
     default:

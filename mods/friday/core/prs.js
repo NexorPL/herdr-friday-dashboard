@@ -81,5 +81,12 @@ export function rowsFor(raw, key) {
     .sort((a, b) => b.id - a.id);
 }
 
+/** The active PRs of several repos of one project in one list, newest id first; each row names its repo. */
+export function rowsForRepos(raw, organization, project, repos) {
+  return repos
+    .flatMap((repo) => rowsFor(raw, repoKey(organization, project, repo)).map((r) => ({ ...r, repo })))
+    .sort((a, b) => b.id - a.id);
+}
+
 /** The toast: `New PR !812`, with `title — author`. */
 export const prToast = (pr) => ({ title: `New PR !${pr.id}`, body: `${pr.title} — ${pr.author}` });

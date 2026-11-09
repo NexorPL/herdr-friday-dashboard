@@ -9,7 +9,7 @@ import { secretFrom, withSecret } from "./core/secrets.js";
 import { addRecord, recordsOf } from "./core/worklogs.js";
 import { addFavorite, deleteFavorite, moveFavorite } from "./core/favorites.js";
 import { deleteListRow, moveListRow } from "./core/lists.js";
-import { applyFetch, markSeen, rowsFor } from "./core/prs.js";
+import { applyFetch, markSeen, rowsFor, rowsForRepos } from "./core/prs.js";
 import { isMissingError, isTooLargeError } from "./core/mdfile.js";
 import { toggleTodo, addEntry } from "./core/lists.js";
 import { addToBoardFile, moveInBoardFile, importInBoardFile, flagInBoardFile, editInBoardFile, deleteInBoardFile } from "./core/board.js";
@@ -260,6 +260,16 @@ export async function recordPrs(key, fetched, now) {
     return r.next;
   }, now, false);
   return result;
+}
+
+/** The active PRs of `repos` (one project) as the widget draws them, read from prs.json without writing it; each row names its repo. */
+export async function readPrRows(organization, project, repos) {
+  try {
+    const p = parseJson(await readTextFile(dataPath(PRS_FILE)));
+    return p.state === "ok" ? rowsForRepos(p.value, organization, project, repos) : [];
+  } catch {
+    return [];
+  }
 }
 
 /** Clears the "new" mark of one PR (`id`) or of every PR of the repo (null); returns the repo's rows. */
