@@ -8,7 +8,7 @@ import { favoriteRows, favoriteKeys } from "../core/favorites.js";
 import { dataPath, FAVORITES_FILE, moveInFavorites, readDataText } from "../store.js";
 import { openLink, openPath } from "../open.js";
 import { button, note, rowAction, tip } from "../ui.js";
-import { deleteRowAt } from "./lists.js";
+import { deleteRowAt, todoToBoard } from "./lists.js";
 
 /** The rows to draw now, for the view and its keys alike. */
 export function favoriteList(v) {
@@ -90,5 +90,6 @@ export function renderFavorites(v) {
       .child(div().w(84).flex_none().truncate().text_size(12).text_color(r.missing ? t.dim : t.accent).child(r.key))
       .child(tip(div().flex_1().truncate().text_size(12.5).text_color(r.missing ? t.dim : t.foreground).child(r.missing ? "not found" : r.summary), r.missing ? "" : r.summary))
       .child(div().w(84).flex_none().truncate().text_size(11).text_color(t.dim).child(r.status))
-      .child(div().w(64).flex_none().truncate().text_size(11).text_color(t.muted).child(r.priority))));
+      .child(div().w(64).flex_none().truncate().text_size(11).text_color(t.muted).child(r.priority))
+      .child(button(t, `fav-board-${i}`, "To board (b)", (_e, cx) => todoToBoard(v, r, cx)))));
 }

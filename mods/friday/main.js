@@ -262,6 +262,7 @@ export default class Friday extends View {
     else if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
     else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
     else if (e.key === "enter") logRow(this, rows[this.cursor]);
+    else if (e.key === "b") todoToBoard(this, rows[this.cursor], cx);
     else if (e.key === "delete" && rows[this.cursor]) this.openDeleteRow("favorites", this.cursor, rows[this.cursor].key);
     else if (e.key === "o" && rows[this.cursor]?.url) openLink(rows[this.cursor].url);
     else if (e.key === "a") this.openAddFavorite();

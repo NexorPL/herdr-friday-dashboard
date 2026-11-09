@@ -63,10 +63,10 @@ export function moveListRowAt(v, rows, dir, cx) {
   });
 }
 
-/** `b` or the row's button: puts the todo's (or priority's) text on the board's TODO column, unless a card with that text is there. */
+/** `b` or the row's button: puts the todo's (priority's, favorite's key) text on the board's TODO column, unless a card with that text is there. */
 export function todoToBoard(v, row, cx) {
   if (!row || v.busy) return;
-  const text = (row.body ?? row.text).trim(); // a todo row has `body`, a priority row `text`
+  const text = (row.body ?? row.text ?? row.key).trim(); // a todo row has `body`, a priority row `text`, a favorite its `key`
   v.busy = true;
   v.message = null;
   cx.spawn(async (cx) => {
