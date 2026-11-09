@@ -2,6 +2,16 @@
 
 Friday follows [SemVer](https://semver.org). Before 1.0 a breaking change goes in a minor bump, with a migration note here. The surfaces that count as breaking are listed in `BACKWARD_COMPATIBILITY.md`.
 
+## 0.1.1
+
+Checked against herdr-app 0.1.14. No format or setting changes: existing data files and `settings.json` work as they are.
+
+- **Priorities**: **To board (b)** puts a priority on the board's TODO column; **Log time** (✎, `l`) opens the time-log dialog for the row's Jira key, as in Favorites; **Delete** asks first, then removes the row's line.
+- **Favorites**: **To board (b)** adds a favorite's key to the board; **Delete** asks first, then removes the key's line.
+- **Deleting a row** is new for these two files (R16, D51): one line, after a confirmation, refused if the file changed. Todos and notes still have no delete.
+- README: status badges, a Platforms table (the remembered Friday tab is Windows only) and a section on connecting the iCal address, Jira token and Azure DevOps PAT.
+- CI: the `test` check now also runs on pull requests that change only docs, since `main` requires it.
+
 ## 0.1.0
 
 The first version: Friday as a mod for herdr-app, checked against herdr-app 0.1.12.
