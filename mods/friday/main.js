@@ -21,6 +21,7 @@ import { PaneHead, DOC_UNREADABLE } from "./widgets/pane-head.js";
 import { importCandidates } from "./core/board.js";
 import { AddLineDialog } from "./dialogs/addline.js";
 import { DeleteCardDialog } from "./dialogs/deletecard.js";
+import { DeleteRowDialog } from "./dialogs/deleterow.js";
 import { readList, readDataText, dataDir, ARRANGEMENT_FILE, LIST_FILES } from "./store.js";
 import { LogTimeDialog, AddFavoriteDialog } from "./dialogs/jira-dialogs.js";
 import { LogDayDialog } from "./dialogs/logday.js";
@@ -30,7 +31,7 @@ import { PanelMenu } from "./dialogs/panel.js";
 import { iconButton, note, openAddMenu, openSettingsDialog, widgetHeader } from "./ui.js";
 import { openLink, openPath } from "./open.js";
 
-const DIALOGS = { settings: SettingsDialog, add: AddMenu, panel: PanelMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog, addline: AddLineDialog, deletecard: DeleteCardDialog };
+const DIALOGS = { settings: SettingsDialog, add: AddMenu, panel: PanelMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog, addline: AddLineDialog, deletecard: DeleteCardDialog, deleterow: DeleteRowDialog };
 const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, favorites: renderFavorites, prs: renderPrs, todos: renderTodos, notes: renderNotes, priorities: renderPriorities, board: renderBoard };
 const LISTS = ["todos", "notes", "priorities", "board"];
 /** The side panel's expanded sizes: widget -> weight. */
@@ -261,6 +262,7 @@ export default class Friday extends View {
     else if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
     else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
     else if (e.key === "enter") logRow(this, rows[this.cursor]);
+    else if (e.key === "delete" && rows[this.cursor]) this.openDeleteRow("favorites", this.cursor, rows[this.cursor].key);
     else if (e.key === "o" && rows[this.cursor]?.url) openLink(rows[this.cursor].url);
     else if (e.key === "a") this.openAddFavorite();
     else if (e.key === "e") openPath(favoritesFile());
@@ -278,6 +280,11 @@ export default class Friday extends View {
     openOverlay({ mod: "friday", kind: "dialog", width: 380, height: 210, props: { dialog: "addline", list: "board", card } });
   }
 
+  /** Priorities and favorites: asks before deleting `row` (`index` and `text` as drawn; a favorite's text is its key). */
+  openDeleteRow(list, index, text) {
+    openOverlay({ mod: "friday", kind: "dialog", width: 380, height: 190, props: { dialog: "deleterow", list, index, text } });
+  }
+
   /** The board: asks before deleting `card` (a card as drawn). */
   openDeleteCard(card) {
     openOverlay({ mod: "friday", kind: "dialog", width: 380, height: 190, props: { dialog: "deletecard", card } });
@@ -293,6 +300,7 @@ export default class Friday extends View {
     else if (id === "todos" && (e.key === "space" || e.key === " " || e.key === "enter")) toggleTodoRow(this, rows[this.cursor], cx);
     else if ((id === "todos" || id === "priorities") && e.key === "b") todoToBoard(this, rows[this.cursor], cx);
     else if (id === "priorities" && e.key === "l") logPriority(this, rows[this.cursor]);
+    else if (id === "priorities" && e.key === "delete" && rows[this.cursor]) this.openDeleteRow("priorities", this.cursor, rows[this.cursor].text);
     else if (id === "priorities" && e.key === "enter" && rows[this.cursor]?.url) openLink(rows[this.cursor].url);
     else if (id === "notes" && (e.key === "a" || e.key === "n")) this.noteInput.focus();
     else if (e.key === "a") this.openAddLine();
