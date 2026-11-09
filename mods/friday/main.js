@@ -15,7 +15,7 @@ import { renderLedger, flatRows } from "./widgets/ledger.js";
 import { renderMeetings, meetingRows, joinRow } from "./widgets/meetings.js";
 import { renderPrs, prRows, openPr } from "./widgets/prs.js";
 import { renderFavorites, favoriteList, favoritesFile, logRow, moveFavoriteRow } from "./widgets/favorites.js";
-import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, todoToBoard, moveListRowAt, editFile, submitNote } from "./widgets/lists.js";
+import { renderTodos, renderNotes, renderPriorities, priorityList, todoList, noteList, toggleTodoRow, todoToBoard, logPriority, moveListRowAt, editFile, submitNote } from "./widgets/lists.js";
 import { renderBoard, boardKey, boardOf } from "./widgets/board.js";
 import { PaneHead, DOC_UNREADABLE } from "./widgets/pane-head.js";
 import { importCandidates } from "./core/board.js";
@@ -291,7 +291,8 @@ export default class Friday extends View {
     else if (e.key === "down") this.cursor = Math.min(rows.length - 1, this.cursor + 1);
     else if (e.key === "up") this.cursor = Math.max(0, this.cursor - 1);
     else if (id === "todos" && (e.key === "space" || e.key === " " || e.key === "enter")) toggleTodoRow(this, rows[this.cursor], cx);
-    else if (id === "todos" && e.key === "b") todoToBoard(this, rows[this.cursor], cx);
+    else if ((id === "todos" || id === "priorities") && e.key === "b") todoToBoard(this, rows[this.cursor], cx);
+    else if (id === "priorities" && e.key === "l") logPriority(this, rows[this.cursor]);
     else if (id === "priorities" && e.key === "enter" && rows[this.cursor]?.url) openLink(rows[this.cursor].url);
     else if (id === "notes" && (e.key === "a" || e.key === "n")) this.noteInput.focus();
     else if (e.key === "a") this.openAddLine();
