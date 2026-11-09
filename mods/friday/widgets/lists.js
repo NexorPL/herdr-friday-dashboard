@@ -116,7 +116,7 @@ function renderList(v, rows, draw) {
     .children(rows.map((r, i) => h_flex().id(`${id}-${i}`).gap(8).px(4).min_h(24).items_center().rounded(4).cursor_pointer()
       .when(i === v.cursor, (el) => el.bg(t.selected))
       .hover((s) => s.bg(t.hover))
-      .on_click((_e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); draw.click(v, r, cx); cx.notify(); })
+      .on_click((e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); draw.click(v, r, cx, e); cx.notify(); })
       .child(draw.row(t, r))));
 }
 
@@ -142,7 +142,7 @@ export function renderNotes(v) {
 
 export function renderPriorities(v) {
   return renderList(v, priorityList(v), {
-    click: (_v, r) => { if (r.url) openLink(r.url); },
+    click: (_v, r, _cx, e) => { if (r.url && e.click_count >= 2) openLink(r.url); }, // a click selects; a double-click or Enter opens the issue
     row: (t, r) => h_flex().gap(8).flex_1()
       .child(div().w(20).flex_none().text_size(11).text_color(t.dim).child(String(r.n)))
       .child(div().w(76).flex_none().truncate().text_size(12).text_color(t.accent).child(r.key ?? ""))
