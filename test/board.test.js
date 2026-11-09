@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COLUMNS, IMPORT_MARKER, parseBoard, priorityCards, setFlag, editCard, flagInBoardFile, editInBoardFile, defaultPlace, moveCard, addCard, addToBoardFile, moveInBoardFile, isColumnHeading, nextSelection, selectCard, cardsWithoutStatus, movePlace, selectMoved, boardKeys, importCandidates, importLists, importInBoardFile, cardFace, dropPlace, dropSlot } from "../mods/friday/core/board.js";
-import { onlyMoved, onlyLineChanged, keepsEveryLine, CHANGED } from "../mods/friday/core/mdfile.js";
+import { COLUMNS, IMPORT_MARKER, parseBoard, priorityCards, removeCard, deleteInBoardFile, setFlag, editCard, flagInBoardFile, editInBoardFile, defaultPlace, moveCard, addCard, addToBoardFile, moveInBoardFile, isColumnHeading, nextSelection, selectCard, cardsWithoutStatus, movePlace, selectMoved, boardKeys, importCandidates, importLists, importInBoardFile, cardFace, dropPlace, dropSlot } from "../mods/friday/core/board.js";
+import { onlyMoved, onlyLineChanged, onlyRemoved, keepsEveryLine, CHANGED } from "../mods/friday/core/mdfile.js";
 
 const BOM = "﻿";
 const FILE = [
@@ -210,6 +210,43 @@ test("flagInBoardFile and editInBoardFile write through the one-line guard", asy
   assert.equal(f.text, "## TODO\n- ! a\n- b2\n");
   assert.deepEqual(await editInBoardFile(f.io, "board.md", a, "late"), { ok: false, message: CHANGED }, "the card was drawn before it changed");
   assert.equal(f.writes.length, 2);
+});
+
+test("removeCard takes out the card's lines and nothing else", () => {
+  const text = "﻿## TODO\r\n- Call the bank\r\n  detail\r\n- Write docs\r\n## Done\r\n- x";
+  const gone = removeCard(text, cardOf(text, "Call the bank"));
+  assert.equal(gone.text, "﻿## TODO\r\n- Write docs\r\n## Done\r\n- x", "the indented line goes with its card");
+  assert.deepEqual([gone.at, gone.count], [1, 2]);
+  assert.ok(onlyRemoved(text, gone.text, gone.at, gone.count));
+  const last = removeCard(text, cardOf(text, "x"));
+  assert.equal(last.text, "﻿## TODO\r\n- Call the bank\r\n  detail\r\n- Write docs\r\n## Done\r\n", "the lines above keep their own terminators");
+  assert.ok(onlyRemoved(text, last.text, last.at, last.count));
+  assert.equal(removeCard(text.replace("Call the bank", "Other"), cardOf(text, "Call the bank")), null, "its line changed by hand");
+  assert.equal(removeCard(text.replace("  detail", "  other detail"), cardOf(text, "Call the bank")), null, "its body changed");
+  assert.equal(removeCard(null, cardOf(text, "x")), null);
+  const dup = "## TODO\n- x\n- y\n- x\n";
+  assert.equal(removeCard(dup, parseBoard(dup).columns[0].cards[2]).text, "## TODO\n- x\n- y\n", "one of several duplicates goes, the one drawn");
+  assert.equal(removeCard("- new\n" + dup, parseBoard(dup).columns[0].cards[2]), null, "a line was added above it");
+});
+
+test("onlyRemoved refuses anything but exactly those lines going", () => {
+  const before = "a\nb\nc\nd\n";
+  assert.equal(onlyRemoved(before, "a\nd\n", 1, 2), true);
+  assert.equal(onlyRemoved(before, "a\nc\nd\n", 1, 2), false, "one line too many kept");
+  assert.equal(onlyRemoved(before, "a\nb\nd\n", 1, 2), false, "the wrong lines went");
+  assert.equal(onlyRemoved(before, "a\nB\nd\n", 1, 1), false, "another line was rewritten");
+  assert.equal(onlyRemoved(before, before, 1, 0), false, "removing nothing is not a delete");
+  assert.equal(onlyRemoved(before, "a\r\nd\n", 1, 2), false, "a terminator changed");
+});
+
+test("deleteInBoardFile deletes one card, and refuses a card that changed", async () => {
+  const f = fakeIo("## TODO\n- a\n  more\n- b\n");
+  const a = cardOf(f.text, "a");
+  assert.deepEqual(await deleteInBoardFile(f.io, "board.md", a), { ok: true, changed: true });
+  assert.equal(f.text, "## TODO\n- b\n");
+  assert.deepEqual(await deleteInBoardFile(f.io, "board.md", a), { ok: false, message: CHANGED }, "it is gone");
+  assert.deepEqual(await deleteInBoardFile(f.io, "board.md", cardOf(f.text.replace("- b", "- b2"), "b2")), { ok: false, message: CHANGED });
+  assert.equal(f.writes.length, 1);
 });
 
 test("a write that loses a race is planned again from the new file, once", async () => {

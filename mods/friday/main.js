@@ -20,6 +20,7 @@ import { renderBoard, boardKey, boardOf } from "./widgets/board.js";
 import { PaneHead, DOC_UNREADABLE } from "./widgets/pane-head.js";
 import { importCandidates } from "./core/board.js";
 import { AddLineDialog } from "./dialogs/addline.js";
+import { DeleteCardDialog } from "./dialogs/deletecard.js";
 import { readList, readDataText, dataDir, ARRANGEMENT_FILE, LIST_FILES } from "./store.js";
 import { LogTimeDialog, AddFavoriteDialog } from "./dialogs/jira-dialogs.js";
 import { LogDayDialog } from "./dialogs/logday.js";
@@ -29,7 +30,7 @@ import { PanelMenu } from "./dialogs/panel.js";
 import { iconButton, note, openAddMenu, openSettingsDialog, widgetHeader } from "./ui.js";
 import { openLink, openPath } from "./open.js";
 
-const DIALOGS = { settings: SettingsDialog, add: AddMenu, panel: PanelMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog, addline: AddLineDialog };
+const DIALOGS = { settings: SettingsDialog, add: AddMenu, panel: PanelMenu, logtime: LogTimeDialog, addfavorite: AddFavoriteDialog, logday: LogDayDialog, addline: AddLineDialog, deletecard: DeleteCardDialog };
 const BODIES = { summary: renderSummary, ledger: renderLedger, meetings: renderMeetings, favorites: renderFavorites, prs: renderPrs, todos: renderTodos, notes: renderNotes, priorities: renderPriorities, board: renderBoard };
 const LISTS = ["todos", "notes", "priorities", "board"];
 /** The side panel's expanded sizes: widget -> weight. */
@@ -275,6 +276,11 @@ export default class Friday extends View {
   /** The board: a dialog with the text of `card` (a card as drawn) to rewrite. */
   openEditCard(card) {
     openOverlay({ mod: "friday", kind: "dialog", width: 380, height: 210, props: { dialog: "addline", list: "board", card } });
+  }
+
+  /** The board: asks before deleting `card` (a card as drawn). */
+  openDeleteCard(card) {
+    openOverlay({ mod: "friday", kind: "dialog", width: 380, height: 190, props: { dialog: "deletecard", card } });
   }
 
   listKey(e, cx) {

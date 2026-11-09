@@ -1,11 +1,11 @@
 // board.md (D43, D44, R13): a kanban board in one plain file. A column is a heading (TODO, In
 // progress, Done) and a card is a line under it. A card is a priority when its text starts with
-// "! ". Friday adds a card, moves a card's lines, adds a missing heading, or (D44) changes the one
-// first line of a card the owner edits or flags; it deletes no line and changes no other. Pure: no `herdr` import; the
+// "! ". Friday adds a card, moves a card's lines, adds a missing heading, changes the one first line
+// of a card the owner edits or flags (D48), or deletes a card the owner confirmed (D49); it changes no other line. Pure: no `herdr` import; the
 // file reads and writes are passed in as `io` (see core/mdfile.js).
 import { jiraKeys } from "./jira.js";
 import { MARKER, todoRows, priorityRows } from "./lists.js";
-import { HEADING, checkboxOf, cleanLine, editMd, moveLines, onlyLineChanged, onlyMoved, parseMd, renderMd } from "./mdfile.js";
+import { HEADING, checkboxOf, cleanLine, editMd, moveLines, onlyLineChanged, onlyMoved, onlyRemoved, parseMd, renderMd } from "./mdfile.js";
 
 export const COLUMNS = [
   { id: "todo", title: "TODO" },
@@ -268,6 +268,30 @@ export function editCard(text, card, body) {
   const clean = cleanLine(body);
   if (clean === null) throw new Error("not a single line");
   return rewriteFirstLine(text, card, (_rest, flag) => ({ rest: clean, flag }));
+}
+
+/**
+ * `text` without `card` (a card as drawn): its first line and its indented lines. Returns
+ * { text, at (the first removed line), count }, or null when the card is gone or ambiguous. Every
+ * other line stays as it is, so a card at the end leaves the line above with its own terminator.
+ */
+export function removeCard(text, card) {
+  if (text == null) return null;
+  const doc = parseMd(text);
+  const mine = findCard(parseBoard(text), doc.lines, card);
+  if (!mine) return null;
+  doc.lines.splice(mine.line, mine.size);
+  return { text: renderMd(doc), at: mine.line, count: mine.size };
+}
+
+/** Deletes a card of board.md (the owner confirmed first); { ok, changed } or { ok: false, message }. Only that card's lines may go. */
+export function deleteInBoardFile(io, path, card) {
+  let plan = null;
+  return editMd(io, path, (t) => {
+    const r = removeCard(t, card);
+    plan = r;
+    return r ? r.text : null;
+  }, (before, after) => plan !== null && onlyRemoved(before, after, plan.at, plan.count));
 }
 
 /** Sets or clears the flag of a card of board.md; { ok, changed } or { ok: false, message }. */

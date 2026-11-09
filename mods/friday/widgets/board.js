@@ -1,6 +1,6 @@
 // The board (D43, R13): board.md as four columns of cards. Arrows select, Shift+arrows move the
 // selected card, a press and a release elsewhere moves a card by mouse, `a` or `+` adds to the selected
-// column, `k` rewrites the card, `p` flags it as a priority (a "! " before its text, D44), `e` opens the file, `r` reads it again. The rules are in core/board.js; this file only
+// column, `k` rewrites the card, `Delete` deletes it after a question, `p` flags it as a priority (a "! " before its text, D44), `e` opens the file, `r` reads it again. The rules are in core/board.js; this file only
 // draws and reacts.
 import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
@@ -108,6 +108,7 @@ export function boardKey(v, e, cx) {
   else if (dir) v.sel = nextSelection(board, sel, dir);
   else if (e.key === "a" || e.key === "+" || e.key_char === "+") v.openAddLine("board", sel.column); // "+" is the numpad key too
   else if (e.key === "k" && sel.card) v.openEditCard(sel.card);
+  else if (e.key === "delete" && sel.card) v.openDeleteCard(sel.card);
   else if (e.key === "p" && sel.card) { flagCard(v, sel.card, cx); return; } // the write redraws when it ends
   else if (e.key === "enter" || e.key === "o") openCard(v, sel.card);
   else if (e.key === "e") editFile(v);
@@ -143,7 +144,7 @@ function offerView(v, t) {
     .child(button(t, "bd-dismiss", "Dismiss", (_e, cx) => runImport(v, dismissImport, cx)));
 }
 
-const LEGEND = "arrows select · Shift+arrows move · a or + add · k edit · p priority · Enter or o open in Jira · n note · e edit file · r refresh";
+const LEGEND = "arrows select · Shift+arrows move · a or + add · k edit · p priority · Delete delete · Enter or o open in Jira · n note · e edit file · r refresh";
 
 const pill = (text, color) => div().flex_none().px(6).rounded(8).border_1().border_color(color).text_size(10.5).text_color(color).child(text);
 
@@ -235,7 +236,8 @@ export function renderBoard(v) {
       .child(button(t, "bd-add", "+ Add card", () => v.openAddLine("board", sel.column))) // the selected column; a is the same
       .when(Boolean(sel.card), (el) => el
         .child(button(t, "bd-edit", "Edit card (k)", () => v.openEditCard(sel.card)))
-        .child(button(t, "bd-flag", sel.card.flag ? "Not a priority (p)" : "Priority (p)", (_e, cx) => flagCard(v, sel.card, cx)))))
+        .child(button(t, "bd-flag", sel.card.flag ? "Not a priority (p)" : "Priority (p)", (_e, cx) => flagCard(v, sel.card, cx)))
+        .child(button(t, "bd-delete", "Delete (Del)", () => v.openDeleteCard(sel.card)))))
     .when(priorityCards(board).length > 0, (el) => el.child(priorityStrip(v, t, board, sel, issues)))
     .when(Boolean(v.list.error), (el) => el.child(note(t, `${v.list.error}${v.list.text === null ? "" : " (showing the last read)"}`, "error")))
     .when(Boolean(v.message), (el) => el.child(note(t, v.message, "stale")))

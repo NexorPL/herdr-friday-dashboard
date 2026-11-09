@@ -84,6 +84,17 @@ export function onlyLineChanged(before, after, at) {
   return x.bom === y.bom && x.lines.length === y.lines.length && x.lines.every((l, i) => y.lines[i].eol === l.eol && (i === at || y.lines[i].text === l.text));
 }
 
+/**
+ * True when `after` is `before` with exactly `count` lines removed from `at`: every line kept is the same
+ * in text and terminator, and so is the BOM. The guard for deleting one card.
+ */
+export function onlyRemoved(before, after, at, count) {
+  const x = parseMd(before ?? "");
+  const y = parseMd(after ?? "");
+  const kept = x.lines.filter((_, i) => i < at || i >= at + count);
+  return count > 0 && x.bom === y.bom && x.lines.length - count === y.lines.length && kept.every((l, i) => y.lines[i].text === l.text && y.lines[i].eol === l.eol);
+}
+
 /** True when a read error says the file does not exist (as opposed to locked, too large, denied). */
 export function isMissingError(e) {
   return /ENOENT|no such file|cannot find the (file|path)|os error [23]\b/i.test(String(e?.message ?? e ?? ""));
