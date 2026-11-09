@@ -103,6 +103,18 @@ The button stands before the tabs because herdr-app's tab bar is read-only and d
 
 Keep the Friday tab open anyway. Another layout starts its mods fresh, while mod panes in a tab stay alive, so the tab keeps the meeting alerts running whichever layout is shown.
 
+## Connect your accounts
+
+Meetings, Jira and Azure DevOps stay off until you set them up in Settings (the gear in a pane header). Each widget shows what is missing. Friday only calls the services you configure, and the Jira and Azure DevOps tokens are the ones you create yourself.
+
+| Widget | You need | Settings |
+|---|---|---|
+| Meetings | The secret iCal address of your calendar (Outlook on the web: Settings, Calendar, Shared calendars, Publish a calendar; Google Calendar: Settings, Integrate calendar, Secret address in iCal format). Anyone with the address can read the calendar. | Calendar |
+| Jira | A Jira Cloud site (`https://your-team.atlassian.net`), your account email and an [API token](https://id.atlassian.com/manage-profile/security/api-tokens). A **scoped** token needs `read:jira-work` and `write:jira-work`; the write scope is only used to log time you confirmed. A **classic** token also works: set the token kind to match. | Jira |
+| Azure DevOps | The organization (the name in `dev.azure.com/your-org`) and a personal access token with the **Code (Read)** scope. Friday never writes to Azure DevOps. | Azure DevOps |
+
+The iCal address and both tokens are stored in `secrets.json` in the data folder (see Data), never in `settings.json`, and Friday never shows them again after you save. A token's scope is the only limit on what it can do, so give it no more than the table says.
+
 ## Review ledger (optional)
 
 The review ledger is for reviewers who have no review bot in CI and track their own pull-request reviews. It stays off until you set a file: Settings, Review ledger, or `ledger.path` in `settings.json`. Without it, the Summary shows no review line and the ledger widget only explains this.
