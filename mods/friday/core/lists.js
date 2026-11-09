@@ -2,7 +2,7 @@
 // rows, flips one todo checkbox and adds one line; nothing else in a file is ever touched.
 import { jiraKeys } from "./jira.js";
 import { ymd, hhmm } from "./format.js";
-import { HEADING, addLine, checkboxOf, cleanLine, editMd, moveLines, onlyMoved, onlyToggled, parseMd, quickNote, toggleCheckbox } from "./mdfile.js";
+import { HEADING, addLine, checkboxOf, cleanLine, editMd, moveLines, onlyMoved, onlyRemoved, onlyToggled, parseMd, quickNote, renderMd, toggleCheckbox } from "./mdfile.js";
 
 /**
  * The checkbox lines of todos.md in file order: { line (index), text (the raw line, which identifies
@@ -56,6 +56,21 @@ const ROW_LINE = {
   priorities: { is: (t) => !HEADING.test(t) && t.replace(MARKER, "").trim() !== "", shows: (t) => t.replace(MARKER, "").trim() },
 };
 
+/** The rows of the list `kind` as { line, size } (size counts the indented lines right under it), and `mine`, row `index` if its line still shows `shown`. */
+function rowAt(text, kind, index, shown) {
+  const spec = ROW_LINE[kind];
+  const lines = parseMd(text ?? "").lines;
+  const rows = [];
+  lines.forEach((l, line) => { if (spec.is(l.text)) rows.push({ line }); });
+  for (const r of rows) {
+    let size = 1;
+    while (lines[r.line + size] && /^s+S/.test(lines[r.line + size].text) && !spec.is(lines[r.line + size].text)) size++;
+    r.size = size;
+  }
+  const mine = rows[index];
+  return { lines, rows, mine: mine && spec.shows(lines[mine.line].text) === shown ? mine : null };
+}
+
 /**
  * `text` with row `index` of the list `kind` ("todos", "notes" or "priorities") one place up or down:
  * it swaps with the neighbouring row, and indented lines right under a row (that are not rows) travel
@@ -88,6 +103,18 @@ export function moveListRow(io, path, kind, index, shown, dir) {
     plan = r?.plan ?? null;
     return r ? r.text : null;
   }, (before, after) => plan !== null && onlyMoved(before, after, plan));
+}
+
+/** Deletes a row of priorities.md (the owner confirmed first), the way moveRow finds it; { ok, changed } or { ok: false, message }. Only that row's lines may go. */
+export function deleteListRow(io, path, kind, index, shown) {
+  let plan = null;
+  return editMd(io, path, (text) => {
+    const { lines, mine } = rowAt(text, kind, index, shown);
+    if (!mine) return null;
+    lines.splice(mine.line, mine.size);
+    plan = { at: mine.line, count: mine.size };
+    return renderMd({ ...parseMd(text), lines });
+  }, (before, after) => plan !== null && onlyRemoved(before, after, plan.at, plan.count));
 }
 
 /** Flips one todo (a row of todoRows); { ok, changed } or { ok: false, message }. */

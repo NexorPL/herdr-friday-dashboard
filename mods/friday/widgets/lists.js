@@ -81,6 +81,12 @@ export function todoToBoard(v, row, cx) {
   });
 }
 
+/** The Delete button of priorities and favorites: asks about the row under the cursor, or says to select one. `text` is what the dialog shows and matches. */
+export function deleteRowAt(v, list, row, text, cx) {
+  if (row) v.openDeleteRow(list, v.cursor, text);
+  else { v.message = "select a row first"; cx.notify(); }
+}
+
 /** `l` or the row's ✎: the log-time dialog for the priority's Jira key, as for a favorite; off for a row with no key or an issue Jira did not return. */
 export function logPriority(v, row) {
   if (!row) return;
@@ -123,7 +129,8 @@ function renderList(v, rows, draw) {
       .when(id !== "notes", (el) => el.child(button(t, `${id}-add`, "Add (a)", () => v.openAddLine()))) // notes has its input
       .child(button(t, `${id}-edit`, "Edit file (e)", () => editFile(v)))
       .child(button(t, `${id}-up`, "▲ Up", (_e, cx) => moveListRowAt(v, rows, "up", cx)))
-      .child(button(t, `${id}-down`, "▼ Down", (_e, cx) => moveListRowAt(v, rows, "down", cx))))
+      .child(button(t, `${id}-down`, "▼ Down", (_e, cx) => moveListRowAt(v, rows, "down", cx)))
+      .when(id === "priorities", (el) => el.child(button(t, `${id}-delete`, "Delete (Del)", (_e, cx) => deleteRowAt(v, id, rows[v.cursor], rows[v.cursor]?.text, cx)))))
     .when(rows.length === 0 && !v.list.error, (el) => el.child(note(t, EMPTY[id])))
     .children(rows.map((r, i) => h_flex().id(`${id}-${i}`).gap(8).px(4).min_h(24).items_center().rounded(4).cursor_pointer()
       .when(i === v.cursor, (el) => el.bg(t.selected))
