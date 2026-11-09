@@ -1,0 +1,63 @@
+name: Bug report
+description: Something in Friday does not work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Friday is built for its owner first, so a report with the steps below helps most.
+        **Never paste a secret**: no Jira token, Azure DevOps PAT or iCal address, and no real company keys, links or names. Screenshots must not show real data.
+  - type: dropdown
+    id: widget
+    attributes:
+      label: Widget
+      options:
+        - Summary
+        - Meetings
+        - Favorites
+        - Priorities
+        - Todos
+        - Notes
+        - Pull requests
+        - Review ledger
+        - Board
+        - Friday button and panel
+        - Settings
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you saw instead.
+    validations:
+      required: true
+  - type: input
+    id: friday
+    attributes:
+      label: Friday version
+      description: The release or commit you run.
+    validations:
+      required: true
+  - type: input
+    id: herdr-app
+    attributes:
+      label: herdr-app version
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Output of `herdr-app status`, or a screenshot from a demo-seeded sandbox (`scripts/demo-home.mjs`). Remove anything private first.
