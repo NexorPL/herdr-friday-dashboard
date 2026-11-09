@@ -162,6 +162,15 @@ test("addToBoardFile and moveInBoardFile write through the R10 guards", async ()
   assert.equal(f.writes.length, 2);
 });
 
+test("addToBoardFile with once adds a todo's text a single time, in any column", async () => {
+  const f = fakeIo("## TODO\n- a\n## Done\n- b\n");
+  assert.deepEqual(await addToBoardFile(f.io, "board.md", "todo", "c", true), { ok: true, changed: true });
+  assert.deepEqual(await addToBoardFile(f.io, "board.md", "todo", "c", true), { ok: true, changed: false });
+  assert.deepEqual(await addToBoardFile(f.io, "board.md", "todo", "b", true), { ok: true, changed: false }, "a card in Done counts");
+  assert.equal(f.text, "## TODO\n- a\n- c\n## Done\n- b\n");
+  assert.deepEqual(await addToBoardFile(f.io, "board.md", "todo", "c"), { ok: true, changed: true }, "without once a second add is a second card");
+});
+
 test("a write that loses a race is planned again from the new file, once", async () => {
   const start = "## TODO\n- a\n- b\n## Done\n";
   let edited = false;

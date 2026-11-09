@@ -157,9 +157,9 @@ export async function addToList(kind, text) {
 }
 
 /** Adds a card at the end of a column of board.md (the file is created on the first add). { ok, changed } or { ok: false, message }. */
-export async function addToBoard(column, text) {
+export async function addToBoard(column, text, once = false) {
   await ensureDataDir();
-  return addToBoardFile(mdIo, dataPath(LIST_FILES.board), column, text);
+  return addToBoardFile(mdIo, dataPath(LIST_FILES.board), column, text, once);
 }
 
 /** Moves a card of board.md (a card as drawn) to `place`. { ok, changed } or { ok: false, message }. */

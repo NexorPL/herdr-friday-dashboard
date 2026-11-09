@@ -174,9 +174,11 @@ export function addCard(text, column, body) {
 }
 
 /** Adds a card to board.md; { ok, changed } or { ok: false, message } (the message never quotes the file). */
-export function addToBoardFile(io, path, column, body) {
-  if (cleanLine(body) === null) return Promise.resolve({ ok: false, message: "Enter one line of text." });
-  return editMd(io, path, (t) => addCard(t, column, body));
+export function addToBoardFile(io, path, column, body, once = false) {
+  const clean = cleanLine(body);
+  if (clean === null) return Promise.resolve({ ok: false, message: "Enter one line of text." });
+  // once: a card with this text already on the board (any column) leaves the file alone, as the import does
+  return editMd(io, path, (t) => (once && parseBoard(t).columns.some((c) => c.cards.some((x) => x.body === clean)) ? t : addCard(t, column, body)));
 }
 
 /** Moves a card of board.md; { ok, changed } or { ok: false, message }. A result that is not exactly the move is refused. */

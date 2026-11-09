@@ -1,11 +1,13 @@
 // Todos, notes and priorities (D26, R10): the owner's plain `.md` files. Space or a click toggles a
-// todo, `a` adds a line (notes: moves to the input), `e` opens the file in the default program, `r`
+// todo, `b` puts a todo on the board, `a` adds a line (notes: moves to the input), `e` opens the file in the default program, `r`
 // reads it again.
 import { div } from "gpui-kit";
 import { h_flex, v_flex } from "gpui-base";
-import { theme } from "herdr";
+import { theme, setShared } from "herdr";
+import { SETTINGS_REV } from "../hub.js";
+import { jiraKeys } from "../core/jira.js";
 import { todoRows, noteRows, priorityRows, submitLine } from "../core/lists.js";
-import { dataPath, LIST_FILES, toggleInTodos, addToList } from "../store.js";
+import { dataPath, LIST_FILES, toggleInTodos, addToList, addToBoard } from "../store.js";
 import { field } from "../dialogs/jira-dialogs.js";
 import { openLink, openPath } from "../open.js";
 import { button, note } from "../ui.js";
@@ -33,6 +35,23 @@ export function toggleTodoRow(v, row, cx) {
       const r = await toggleInTodos(row).catch(() => ({ ok: false, message: "could not write the file" }));
       if (!r.ok) v.message = r.message;
       await v.readInto(true);
+    } finally {
+      v.busy = false;
+      cx.notify();
+    }
+  });
+}
+
+/** `b` or the row's button: puts the todo's text on the board's TODO column, unless a card with that text is there. */
+export function todoToBoard(v, row, cx) {
+  if (!row || v.busy) return;
+  v.busy = true;
+  v.message = null;
+  cx.spawn(async (cx) => {
+    try {
+      const r = await addToBoard("todo", row.body.trim(), true).catch(() => ({ ok: false, message: "could not write the file" }));
+      v.message = r.ok ? (r.changed ? "added to the board" : "already on the board") : r.message;
+      if (r.ok && r.changed && jiraKeys(row.body).length > 0) setShared(SETTINGS_REV, Date.now()); // a new key reaches Jira on the next poll
     } finally {
       v.busy = false;
       cx.notify();
@@ -83,7 +102,8 @@ export function renderTodos(v) {
   return renderList(v, todoList(v), {
     click: (v2, r, cx) => toggleTodoRow(v2, r, cx),
     row: (t2, r) => h_flex().gap(8).flex_1().child(div().w(20).flex_none().text_size(12.5).text_color(r.done ? t2.dim : t2.accent).child(r.done ? "[x]" : "[ ]"))
-      .child(div().flex_1().truncate().text_size(12.5).text_color(r.done ? t.dim : t.foreground).child(r.body)),
+      .child(div().flex_1().truncate().text_size(12.5).text_color(r.done ? t.dim : t.foreground).child(r.body))
+      .child(button(t, `todos-board-${r.line}`, "To board (b)", (_e, cx) => todoToBoard(v, r, cx))),
   });
 }
 
