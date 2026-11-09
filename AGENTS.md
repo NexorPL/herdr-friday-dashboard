@@ -14,7 +14,7 @@ Friday is a work dashboard for herdr-app, herdr's desktop app, written as one Ja
 
 herdr-app moves, resizes and splits the panes. There is no background process: the mod polls while herdr-app is open and alerts with herdr-app toasts. It is built for its owner first.
 
-> `.ai/` is the maintainer's local working folder (specs, the decision log and the agent pipeline's config). It is not part of this repository, so paths into it below point at files you will not find here; the rules they carry are summarised in this document, `BACKWARD_COMPATIBILITY.md` and `CODE_REVIEW.md`.
+> `.ai/` holds the published part of the maintainer's working notes: the product brief (rules `R`, decisions `D`, non-goals `N`), the design specs and research notes. Interviews, decision sessions, agent run logs, the agent pipeline's config and the process doc `SDLC.md` stay local, so a path into one of them points at a file you will not find here.
 
 Scope, rules and decisions are in `.ai/specs/product-brief.md` (ids `D`, `R`, `N`; D34–D42 and R12 are the herdr-app ones). The design and the six-phase plan are in `.ai/specs/2026-11-02-friday-on-herdr-app.md`. The terminal plugin this replaces lives on, frozen, in a private repository; port its rules and fixtures, not its structure.
 
@@ -49,7 +49,7 @@ Implementation sub-agents run on Sonnet 5.5, or Haiku 5.5 for small mechanical s
 
 ## Validation
 
-Run before every push (also in `.ai/agentic.config.json`):
+Run before every push:
 
 ```bash
 node --test
@@ -59,7 +59,5 @@ For a change under `mods/friday`, also run `herdr-app check mods/friday` on a ma
 
 ## Process docs
 
-- `SDLC.md`: ticket flow, labels, QA gate, claim protocol.
 - `CODE_REVIEW.md`: review rules.
 - `BACKWARD_COMPATIBILITY.md`: protected contract surfaces.
-- `.ai/agentic.config.json`: agent pipeline configuration.

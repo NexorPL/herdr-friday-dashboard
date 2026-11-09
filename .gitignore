@@ -10,5 +10,17 @@ node_modules/
 mods/**/jsconfig.json
 mods/**/gpui-kit.d.ts
 
-# Working notes, specs and agent runs (kept out of the public repo)
-.ai/
+# Maintainer's local notes, kept out of the public repo
+.ai/analysis/
+.ai/browsers/
+.ai/runs/
+.ai/scripts/
+.ai/specs/research/data/
+.ai/specs/research/decisions/
+.ai/specs/research/interviews/
+.ai/specs/research/templates/
+.ai/specs/2026-10-30-friday-first-version.md
+.ai/specs/backlog.md
+.ai/agentic.config.json
+.ai/trackers/
+SDLC.md

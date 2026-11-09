@@ -2,7 +2,7 @@
 
 Friday is built for its owner first, so scope stays small. Issues and pull requests are welcome, but the owner decides what fits.
 
-Open an issue before a large change. Small fixes can go straight to a pull request.
+Open an issue before a large change. Small fixes can go straight to a pull request. Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## Setup
 
