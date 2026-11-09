@@ -69,7 +69,8 @@ export function renderFavorites(v) {
       .when(state === "error", (el) => el.child(h_flex().child(button(t, "fav-settings", "Open Settings", () => v.openSettings("jira")))));
   }
   const rows = favoriteList(v);
-  return v_flex().size_full().overflow_y_scrollbar().p(10).gap(4)
+  return v_flex().id("fav-list").size_full().overflow_y_scrollbar().p(10).gap(4)
+    .on_mouse_down("left", () => { if (v.handle) v.handle.focus(); }) // a press anywhere in the widget gives it the keys
     .when(state === "error", (el) => el.child(note(t, `${status?.error} (showing the last read)`, "error")))
     .when(Boolean(v.message), (el) => el.child(note(t, v.message, "stale")))
     .child(h_flex().gap(8)
@@ -81,7 +82,7 @@ export function renderFavorites(v) {
     .children(rows.map((r, i) => h_flex().id(`fav-${i}`).gap(8).px(4).h(24).items_center().rounded(4).cursor_pointer()
       .when(i === v.cursor, (el) => el.bg(t.selected))
       .hover((s) => s.bg(t.hover))
-      .on_click((_e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); logRow(v, r); cx.notify(); })
+      .on_click((e, cx) => { v.cursor = i; if (v.handle) v.handle.focus(); if (e.click_count >= 2) logRow(v, r); cx.notify(); }) // a click selects; a double-click or Enter opens the time log
       .child(div().w(84).flex_none().truncate().text_size(12).text_color(r.missing ? t.dim : t.accent).child(r.key))
       .child(tip(div().flex_1().truncate().text_size(12.5).text_color(r.missing ? t.dim : t.foreground).child(r.missing ? "not found" : r.summary), r.missing ? "" : r.summary))
       .child(div().w(84).flex_none().truncate().text_size(11).text_color(t.dim).child(r.status))
